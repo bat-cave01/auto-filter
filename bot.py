@@ -92,9 +92,9 @@ async def start(c, m: Message):
         welcome_text,
         parse_mode=enums.ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📢 Updates Channel", url="https://t.me/Batmanlinkz"),
+            [InlineKeyboardButton("📢 Updates Channel", url="UPDATES_CHANNEL"),
             InlineKeyboardButton("❓ Help", callback_data="help_info")],
-            [InlineKeyboardButton("📢 Movie Search Group", url="https://t.me/Batmanlinkz")]
+            [InlineKeyboardButton("📢 Movie Search Group", url=MOVIES_GROUP)]
         ])
     )
 
