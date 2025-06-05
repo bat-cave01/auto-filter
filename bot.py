@@ -91,11 +91,15 @@ async def start(c, m: Message):
     await m.reply_text(
         welcome_text,
         parse_mode=enums.ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📢 Updates Channel", url="UPDATES_CHANNEL"),
-            InlineKeyboardButton("❓ Help", callback_data="help_info")],
-            [InlineKeyboardButton("📢 Movie Search Group", url=MOVIES_GROUP)]
-        ])
+       reply_markup = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("📢 Updates Channel", url=UPDATES_CHANNEL),
+        InlineKeyboardButton("❓ Help", callback_data="help_info")
+    ],
+    [
+        InlineKeyboardButton("🎬 Movie Search Group", url=MOVIES_GROUP)
+    ]
+])
     )
 
 @client.on_callback_query(filters.regex("help_info"))
