@@ -145,7 +145,7 @@ async def check_sub_and_send_file(c: Client, m: Message, msg_id: int):
 async def start_group(_, m: Message):
     await m.reply_text("👋 Hey, I'm alive and working in this group!")
     
-@client.on_message(filters.command("files") & filters.user(ADMIN_ID))
+@client.on_message(filters.command("files"))
 async def index_list(c: Client, m: Message):
     files = list(files_collection.find().sort("file_name", 1))
     if not files:
