@@ -2,6 +2,8 @@ import os
 import sys
 import asyncio
 import socket
+import string
+import re
 import threading
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
@@ -56,11 +58,12 @@ async def delete_after_delay(msg: Message, delay: int):
 
 def build_index_page(files, page):
     PAGE_SIZE = 10
+    total_pages = (len(files) + PAGE_SIZE - 1) // PAGE_SIZE
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
     current = files[start:end]
 
-    lines = ["📄 <b>Indexed Files:</b>\n"]
+    lines = ["📄 <b>Stored Files:</b>\n"]
     for i, f in enumerate(current, start=start + 1):
         size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
         clean_name = f.get("file_name", "Unnamed").removeprefix("@Batmanlinkz").strip()
@@ -69,15 +72,26 @@ def build_index_page(files, page):
 
     text = "\n".join(lines)
 
+    # Navigation buttons
     nav_buttons = []
-    if start > 0:
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton("⏮️ First", callback_data="indexpage_0"))
         nav_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"indexpage_{page - 1}"))
-    if end < len(files):
+    if page < total_pages - 1:
         nav_buttons.append(InlineKeyboardButton("Next ➡️", callback_data=f"indexpage_{page + 1}"))
+        nav_buttons.append(InlineKeyboardButton("⏭️ Last", callback_data=f"indexpage_{total_pages - 1}"))
 
-    markup = InlineKeyboardMarkup([nav_buttons]) if nav_buttons else None
+    # Close button
+    close_button = [InlineKeyboardButton("❌ Close", callback_data="close_index")]
+
+    # Final keyboard layout
+    keyboard = []
+    if nav_buttons:
+        keyboard.append(nav_buttons)
+    keyboard.append(close_button)
+
+    markup = InlineKeyboardMarkup(keyboard)
     return text, markup
-
 
 
 async def save_user(user_id):
@@ -126,19 +140,27 @@ async def check_sub_and_send_file(c: Client, m: Message, msg_id: int):
 
         await asyncio.sleep(DELETE_AFTER)
         await sent.delete()
-        await warning.delete()
 
-        await m.reply_text(
-             "<b>ʏᴏᴜʀ ᴍᴇssᴀɢᴇ ɪs sᴜᴄᴄᴇssғᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ.</b>\n"
+        await warning.edit_text(
+            "<b>ʏᴏᴜʀ ᴍᴇssᴀɢᴇ ɪs sᴜᴄᴄᴇssғᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ.</b>\n"
                 "<b>ɪғ ʏᴏᴜ ᴡᴀɴᴛ ᴛʜɪs ᴍᴇssᴀɢᴇ ᴀɢᴀɪɴ ᴛʜᴇɴ ᴄʟɪᴄᴋ ᴏɴ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ</b>",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📥 Get Message Again", url=f"{BASE_URL}/redirect?id={msg_id}")]
-            ])
+            ]),
+            parse_mode=enums.ParseMode.HTML
         )
+
     except Exception as e:
         await m.reply(f"❌ Error:\n<code>{e}</code>", parse_mode=enums.ParseMode.HTML)
 
 # ------------------ Handlers -------------------
+@client.on_callback_query(filters.regex("close_index"))
+async def close_index_handler(_, cb: CallbackQuery):
+    try:
+        await cb.message.delete()  # Delete the index message
+        await cb.answer()  # Acknowledge silently (no popup)
+    except Exception:
+        await cb.answer("❌ Couldn't close.", show_alert=True)
 
 
 @client.on_message(filters.group & filters.command("start"))
@@ -373,25 +395,29 @@ def get_file_buttons(files, query, page):
 
     return InlineKeyboardMarkup(buttons)
 
-
 @client.on_message(filters.group & filters.text)
 async def search(c: Client, m: Message):
     query = m.text.strip()
-    results = list(files_collection.find({"file_name": {"$regex": query, "$options": "i"}}))
+
+    # Preprocess the query into regex pattern (e.g., "gen v" => "gen.*v")
+    keywords = re.split(r"\s+", query)
+    regex_pattern = ".*".join(map(re.escape, keywords))
+    regex = re.compile(regex_pattern, re.IGNORECASE)
+
+    results = list(files_collection.find({"file_name": {"$regex": regex}}))
 
     try:
-        await m.delete()  # Immediately delete the user's message
+        await m.delete()
     except Exception as e:
         print(f"Failed to delete user message: {e}")
 
     if not results:
         msg = await m.reply("❌ No matching files found.")
-        asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
+        asyncio.create_task(delete_after_delay(msg, 15))  # ⏱️ Delete after 15 seconds
         return
 
     markup = get_file_buttons(results, query, 0)
     msg = await m.reply("🔍 Found the following files:", reply_markup=markup)
-
     asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
 
 
@@ -400,7 +426,13 @@ async def paginate_files(c: Client, cb: CallbackQuery):
     query = cb.matches[0].group(1)
     page = int(cb.matches[0].group(2))
 
-    results = list(files_collection.find({"file_name": {"$regex": query, "$options": "i"}}))
+    # Reconstruct the regex pattern
+    keywords = re.split(r"\s+", query)
+    regex_pattern = ".*".join(map(re.escape, keywords))
+    regex = re.compile(regex_pattern, re.IGNORECASE)
+
+    results = list(files_collection.find({"file_name": {"$regex": regex}}))
+
     if not results:
         await cb.answer("❌ No matching files found.", show_alert=True)
         return
@@ -410,8 +442,8 @@ async def paginate_files(c: Client, cb: CallbackQuery):
         await cb.message.edit_reply_markup(reply_markup=markup)
     except Exception:
         await cb.answer("❌ Couldn't update.", show_alert=True)
-        return
-    await cb.answer()
+    else:
+        await cb.answer()
 
 
 @client.on_callback_query(filters.regex(r"^get_(\d+)$"))
