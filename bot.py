@@ -376,21 +376,24 @@ def get_file_buttons(files, query, page):
 
 @client.on_message(filters.group & filters.text)
 async def search(c: Client, m: Message):
-    # Your existing search logic
     query = m.text.strip()
     results = list(files_collection.find({"file_name": {"$regex": query, "$options": "i"}}))
-    
+
+    try:
+        await m.delete()  # Immediately delete the user's message
+    except Exception as e:
+        print(f"Failed to delete user message: {e}")
+
     if not results:
         msg = await m.reply("❌ No matching files found.")
-        # Delete the no-results message after delay as well (optional)
         asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
         return
 
     markup = get_file_buttons(results, query, 0)
     msg = await m.reply("🔍 Found the following files:", reply_markup=markup)
 
-    # Schedule deletion of search results message
     asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
+
 
 @client.on_callback_query(filters.regex(r"^page_(.+)_(\d+)$"))
 async def paginate_files(c: Client, cb: CallbackQuery):
