@@ -103,7 +103,7 @@ async def check_sub_and_send_file(c: Client, m: Message, msg_id: int):
         try:
             invite_link = await c.export_chat_invite_link(AUTH_CHANNEL)
         except Exception:
-            invite_link = "https://t.me"
+            invite_link = "https://t.me/+CyoimDCsFuIzNDQ1"
 
         return await m.reply_text(
             "<b>🚫 You must join our Updates Channel to access this file.</b>",
