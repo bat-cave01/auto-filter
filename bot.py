@@ -64,7 +64,7 @@ def build_index_page(files, page):
     for i, f in enumerate(current, start=start + 1):
         size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
         clean_name = f.get("file_name", "Unnamed").removeprefix("@Batmanlinkz").strip()
-        link = f"{BASE_URL}redirect?id={f['message_id']}"
+        link = f"{BASE_URL}/redirect?id={f['message_id']}"
         lines.append(f"{i}. <a href='{link}'>{clean_name}</a> ({size_mb} MB)")
 
     text = "\n".join(lines)
