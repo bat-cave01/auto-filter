@@ -6,6 +6,7 @@ import string
 import re
 import threading
 from pyrogram import Client, filters, enums
+from pyrogram.types import ChatMemberUpdated, ChatPrivileges
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from pymongo import MongoClient
 from flask import Flask, request, render_template_string, redirect
@@ -201,6 +202,44 @@ async def paginate_index(c: Client, cb: CallbackQuery):
         await cb.answer()
     except Exception as e:
         await cb.answer("⚠️ Couldn't update.", show_alert=True)
+
+
+@client.on_chat_member_updated()
+async def welcome_and_goodbye(client: Client, event: ChatMemberUpdated):
+    chat_title = event.chat.title or "this group"
+
+    # Welcome new users
+    if event.new_chat_member and event.new_chat_member.status == enums.ChatMemberStatus.MEMBER:
+        user = event.new_chat_member.user
+        msg = await client.send_message(
+            event.chat.id,
+            f"<b>👋 Hᴇʏ <a href='tg://user?id={user.id}'>{user.first_name}</a>, Wᴇʟᴄᴏᴍᴇ ᴛᴏ {chat_title} 🎉.</b>\n\n"
+            "<b>Jᴜsᴛ Sᴇɴᴅ ᴀ Mᴏᴠɪᴇ ᴏʀ Sᴇʀɪᴇs Nᴀᴍᴇ ᴡɪᴛʜ Cᴏʀʀᴇᴄᴛ Sᴘᴇʟʟɪɴɢ, I Wɪʟʟ Gɪᴠᴇ Yᴏᴜ ᴀ Fɪʟᴇs Lɪɴᴋ Sᴛᴏʀᴇᴅ ɪɴ Mʏ Dᴀᴛᴀʙᴀsᴇ.</b>",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("📢 Updates Channel", url=UPDATES_CHANNEL)]]
+            ),
+            parse_mode=enums.ParseMode.HTML
+        )
+        await asyncio.sleep(60)
+        await msg.delete()
+
+    # User left or was removed
+    elif event.old_chat_member and event.old_chat_member.status in [
+        enums.ChatMemberStatus.MEMBER,
+        enums.ChatMemberStatus.RESTRICTED
+    ] and event.new_chat_member and event.new_chat_member.status in [
+        enums.ChatMemberStatus.LEFT,
+        enums.ChatMemberStatus.KICKED
+    ]:
+        user = event.old_chat_member.user
+        msg = await client.send_message(
+            event.chat.id,
+            f"<i>👋 <a href='tg://user?id={user.id}'>{user.first_name}</a> has left the group. Goodbye! 👋</i>",
+            parse_mode=enums.ParseMode.HTML
+        )
+        await asyncio.sleep(60)
+        await msg.delete()
+
 
 
 @client.on_message(filters.private & filters.command("start"))
