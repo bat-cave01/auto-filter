@@ -205,13 +205,28 @@ async def start_group(_, m: Message):
     
 @client.on_message(filters.command("files"))
 async def index_list(c: Client, m: Message):
-    files = list(files_collection.find().sort("file_name", 1))
+    # Extract search query after the command (if any)
+    command_parts = m.text.split(maxsplit=1)
+    query = command_parts[1].strip() if len(command_parts) > 1 else ""
+
+    if query:
+        # Case-insensitive search using regex
+        keywords = re.split(r"\s+", query)
+        regex_pattern = ".*".join(map(re.escape, keywords))
+        regex = re.compile(regex_pattern, re.IGNORECASE)
+
+        files = list(files_collection.find({"file_name": {"$regex": regex}}).sort("file_name", 1))
+    else:
+        # No query, return all files
+        files = list(files_collection.find().sort("file_name", 1))
+
     if not files:
-        return await m.reply("📂 No files have been indexed yet.")
+        return await m.reply("📂 No matching files found.")
 
     page = 0
     text, buttons = build_index_page(files, page)
     await m.reply(text, parse_mode=enums.ParseMode.HTML, reply_markup=buttons, disable_web_page_preview=True)
+
 
 @client.on_callback_query(filters.regex(r"^indexpage_(\d+)$"))
 async def paginate_index(c: Client, cb: CallbackQuery):
