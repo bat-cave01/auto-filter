@@ -243,8 +243,8 @@ async def send_paginated_files(c, user_id, files, page, filename_query, query: C
 
     # Notify user privately
     pm_text = (
-    "✅ Your requested files have been sent to the group.\n\n"
-    "<a href='https://t.me/+Dzcz5yk-ayFjODZl'>Click Here</a>"
+    "✅ <b>Your requested files have been sent to the group.\n\n"
+    "<a href='https://t.me/+Dzcz5yk-ayFjODZl'>Click Here</a></b>"
 )
 
     try:
