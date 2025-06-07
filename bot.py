@@ -716,7 +716,26 @@ async def search(c: Client, m: Message):
 async def resend_file(c: Client, cb: CallbackQuery):
     msg_id = int(cb.matches[0].group(1))
     try:
-        sent = await c.copy_message(chat_id=cb.message.chat.id, from_chat_id=INDEX_CHANNEL, message_id=msg_id)
+        # Fetch original message
+        original = await c.get_messages(chat_id=INDEX_CHANNEL, message_ids=msg_id)
+
+        # Try to extract the file name
+        file_name = (
+            getattr(original.document, "file_name", None)
+            or original.caption
+            or "File"
+        )
+        clean_name = re.sub(r'^@[^_\s-]+[_\s-]*', '', file_name).strip()
+
+        # Send the message with cleaned caption
+        sent = await c.copy_message(
+            chat_id=cb.message.chat.id,
+            from_chat_id=INDEX_CHANNEL,
+            message_id=msg_id,
+            caption=clean_name,
+            parse_mode=enums.ParseMode.HTML
+        )
+
         await cb.answer("📥 File sent again.")
 
         warning_text = (
@@ -730,8 +749,10 @@ async def resend_file(c: Client, cb: CallbackQuery):
         await asyncio.sleep(DELETE_AFTER)
         await sent.delete()
         await warning.delete()
-    except Exception:
+    except Exception as e:
+        print(f"[ERROR] Resend failed: {e}")
         await cb.answer("❌ Failed to resend.", show_alert=True)
+
 
 @client.on_callback_query(filters.regex(r"^page_(.+)_(\d+)$"))
 async def paginate_files(c: Client, cb: CallbackQuery):
