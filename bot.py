@@ -189,6 +189,82 @@ async def check_sub_and_send_file(c: Client, m: Message, msg_id: int):
     except Exception as e:
         await m.reply(f"❌ Error:\n<code>{e}</code>", parse_mode=enums.ParseMode.HTML)
 
+ITEMS_PER_PAGE = 6
+
+
+async def send_paginated_files(c, user_id, files, page, filename_query, query: CallbackQuery = None):
+    # Fetch user info for mention
+    user = await c.get_users(user_id)
+    full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+
+    total_pages = (len(files) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+    page = max(0, min(page, total_pages - 1))
+    start = page * ITEMS_PER_PAGE
+    end = start + ITEMS_PER_PAGE
+    current_files = files[start:end]
+
+    mention = f"<a href='tg://user?id={user_id}'>{full_name}</a>"
+    text = f"<b>👋 Hey {mention}, Your Requested Files Have Been Added By Admin</b> (Page {page + 1}/{total_pages}):\n\n"
+
+    for i, file_doc in enumerate(current_files, start=1):
+        file_name = file_doc["file_name"]
+        file_size = round(file_doc.get("file_size", 0) / (1024 * 1024), 2)
+        msg_id = file_doc["message_id"]
+        text += f"➤ <b>{file_name}</b> — {file_size} MB\n"
+        text += f"    <a href='{BASE_URL}/redirect?id={msg_id}'>📥 Download</a>\n\n"
+
+    buttons = []
+    nav_buttons = []
+
+    if page > 0:
+        nav_buttons.append(
+            InlineKeyboardButton("⬅️ Prev", callback_data=f"nav:{user_id}|{filename_query}:{page - 1}")
+        )
+    if page < total_pages - 1:
+        nav_buttons.append(
+            InlineKeyboardButton("➡️ Next", callback_data=f"nav:{user_id}|{filename_query}:{page + 1}")
+        )
+
+    if nav_buttons:
+        buttons.append(nav_buttons)
+
+    markup = InlineKeyboardMarkup(buttons) if buttons else None
+
+    # Send or edit message, get the message object for deletion later
+    if query:
+        await query.edit_message_text(
+            text, reply_markup=markup, parse_mode=enums.ParseMode.HTML, disable_web_page_preview=True
+        )
+        msg = query.message
+    else:
+        msg = await c.send_message(
+            GROUP_ID, text, reply_markup=markup, parse_mode=enums.ParseMode.HTML, disable_web_page_preview=True
+        )
+
+    # Notify user privately
+    pm_text = (
+    "✅ Your requested files have been sent to the group.\n\n"
+    "<a href='https://t.me/+Dzcz5yk-ayFjODZl'>Click Here</a>"
+)
+
+    try:
+        await c.send_message(user_id, pm_text)
+    except Exception:
+        # User might have blocked bot or privacy settings prevent PM
+        pass
+
+    # Async task to delete message after delay
+    async def delete_message_after_delay(msg, delay=DELETE_DELAY):
+        await asyncio.sleep(delay)
+        try:
+            await msg.delete()
+        except Exception:
+            pass
+
+    asyncio.create_task(delete_message_after_delay(msg))
+
+
+
 # ------------------ Handlers -------------------
 @client.on_callback_query(filters.regex("close_index"))
 async def close_index_handler(_, cb: CallbackQuery):
@@ -197,6 +273,71 @@ async def close_index_handler(_, cb: CallbackQuery):
         await cb.answer()  # Acknowledge silently (no popup)
     except Exception:
         await cb.answer("❌ Couldn't close.", show_alert=True)
+
+
+@client.on_callback_query(filters.regex(r"^nav:(\d+)\|(.+):(\d+)$"))
+async def handle_pagination_nav(c: Client, query: CallbackQuery):
+    try:
+        match = re.match(r"^nav:(\d+)\|(.+):(\d+)$", query.data)
+        if not match:
+            return await query.answer("Invalid navigation.")
+
+        user_id = int(match.group(1))
+        filename_query = match.group(2)
+        page = int(match.group(3))
+
+        keywords = re.split(r"\s+", filename_query)
+        regex_pattern = ".*".join(map(re.escape, keywords))
+        regex = re.compile(regex_pattern, re.IGNORECASE)
+        matching_files = list(files_collection.find({"file_name": {"$regex": regex}}))
+
+        await send_paginated_files(c, user_id, matching_files, page, filename_query, query)
+
+    except Exception as e:
+        await query.answer(f"❌ Error: {e}", show_alert=True)
+
+
+
+
+@client.on_message(filters.command("send") & filters.user(ADMIN_ID))
+async def send_file_paginated(c: Client, m: Message):
+    try:
+        parts = m.text.split(maxsplit=2)
+        if len(parts) < 3:
+            return await m.reply(
+                "❗ Usage: `/send <user_id> <filename>`",
+                parse_mode=enums.ParseMode.MARKDOWN
+            )
+
+        user_id = int(parts[1])
+        filename_query = parts[2].strip()
+
+        # Build regex pattern from keywords (to allow fuzzy matching)
+        keywords = re.split(r"\s+", filename_query)
+        regex_pattern = ".*".join(map(re.escape, keywords))
+        regex = re.compile(regex_pattern, re.IGNORECASE)
+
+        # Query your MongoDB collection (make sure files_collection is defined)
+        matching_files = list(files_collection.find({"file_name": {"$regex": regex}}))
+
+        if not matching_files:
+            return await m.reply("❌ No files found.")
+
+        # Call your pagination sender starting at page 0
+        await send_paginated_files(c, user_id, matching_files, 0, filename_query)
+
+        # Confirm in the admin chat that files were sent
+        await m.reply(
+            f"✅ Sent to <a href='tg://user?id={user_id}'>User</a>",
+            parse_mode=enums.ParseMode.HTML
+        )
+
+    except Exception as e:
+        await m.reply(
+            f"❌ Error:\n<code>{e}</code>",
+            parse_mode=enums.ParseMode.HTML
+        )
+
 
 
 @client.on_message(filters.group & filters.command("start"))
@@ -579,7 +720,9 @@ async def search(c: Client, m: Message):
         log_text = (
             f"🔍 <b>Missing File Request</b>\n\n"
             f"👤 User: <a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>\n"
+            f"🆔 User ID: <code>{m.from_user.id}</code>\n"
             f"🗣 Group: <code>{m.chat.title}</code> ({m.chat.id})\n"
+            f"💬 Chat ID: <code>{m.chat.id}</code>\n"
             f"🔎 Query: <code>{query}</code>"
         )
         try:
