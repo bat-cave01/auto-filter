@@ -708,7 +708,7 @@ async def search(c: Client, m: Message):
             "🛎 <b>We will notify you if the file is added in the future.</b>",
             parse_mode=enums.ParseMode.HTML
         )
-        asyncio.create_task(delete_after_delay(msg, 15))
+        asyncio.create_task(delete_after_delay(msg, 80))
         return
 
     markup = get_file_buttons(results, query, 0)
