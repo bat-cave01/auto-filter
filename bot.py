@@ -497,25 +497,6 @@ async def link_handler(c: Client, m: Message):
 
 
 
-@client.on_message(filters.command("testnotify") & filters.user(ADMIN_ID))
-async def test_notify(c: Client, m: Message):
-    user_id = 123456789  # Replace with your Telegram user ID
-    chat_id = -1001234567890  # Replace with your group chat ID
-
-    try:
-        await c.send_message(chat_id, "Test message to group")
-        print("Sent message to group")
-    except Exception as e:
-        print(f"Failed to send to group: {e}")
-
-    try:
-        await c.send_message(user_id, "Test message to user")
-        print("Sent message to user")
-    except Exception as e:
-        print(f"Failed to send to user: {e}")
-
-
-
 
 @client.on_message(filters.channel & (filters.document | filters.video | filters.audio))
 async def index(c, m: Message):
