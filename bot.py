@@ -36,7 +36,42 @@ mongo = MongoClient(MONGO_URI)
 db = mongo["autofilter"]
 files_collection = db["files"]
 users_collection = db["users"]
+pending_requests = db["pending_requests"] 
 PAGE_SIZE = 6
+
+
+def extract_episode_info(name: str) -> str:
+    """
+    Extract episode info like S01E01, S01 E01, Ep01, E01 etc. from file name.
+    """
+    patterns = [
+        r"S\d{1,2}E\d{1,2}",       # S01E01
+        r"S\d{1,2}\s*E\d{1,2}",    # S01 E01 or S01     E01
+        r"S\d{1,2}\s*EP\d{1,2}",   # S01EP01 or S01 EP01
+        r"EP?\d{1,2}",             # Ep01 or E01
+    ]
+    combined = "|".join(patterns)
+    match = re.search(combined, name, re.IGNORECASE)
+    return match.group(0).replace(" ", "") if match else ""
+
+
+
+def extract_season_episode(filename):
+    # Look for season (S or s followed by 1-2 digits)
+    season_match = re.search(r'(S)(\d{1,2})', filename, re.IGNORECASE)
+    # Look for episode (E or EP followed by 1-3 digits)
+    episode_match = re.search(r'(EP?)(\d{1,3})', filename, re.IGNORECASE)
+    
+    if season_match and episode_match:
+        season_num = season_match.group(2).zfill(2)  # pad to 2 digits
+        episode_num = episode_match.group(2).zfill(2)
+        return f'S{season_num}EP{episode_num}'
+    elif episode_match:
+        episode_num = episode_match.group(2).zfill(2)
+        return f'EP{episode_num}'
+    else:
+        return None
+
 
 def run_flask_app():
     # Create a socket to find a free port
@@ -67,7 +102,7 @@ def build_index_page(files, page):
     lines = ["📄 <b>Stored Files:</b>\n"]
     for i, f in enumerate(current, start=start + 1):
         size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
-        clean_name = f.get("file_name", "Unnamed").removeprefix("@Batmanlinkz").strip()
+        clean_name = re.sub(r'^@[^_\s-]+[_\s-]*', '', f['file_name']).strip()
         link = f"{BASE_URL}/redirect?id={f['message_id']}"
         lines.append(f"{i}. <a href='{link}'>{clean_name}</a> ({size_mb} MB)")
 
@@ -188,7 +223,7 @@ async def paginate_index(c: Client, cb: CallbackQuery):
 
     # Clean file names before passing to build_index_page
     for f in files:
-        f['clean_name'] = f['file_name'].removeprefix("@Batmanlinkz").strip()
+        f['clean_name'] = re.sub(r'^@[^_\s-]+[_\s-]*', '', f['file_name']).strip()
 
     text, buttons = build_index_page(files, page)
 
@@ -206,6 +241,10 @@ async def paginate_index(c: Client, cb: CallbackQuery):
 
 @client.on_chat_member_updated()
 async def welcome_and_goodbye(client: Client, event: ChatMemberUpdated):
+    # Ignore if the chat is a channel
+    if event.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+        return
+
     chat_title = event.chat.title or "this group"
 
     # Welcome new users
@@ -223,7 +262,7 @@ async def welcome_and_goodbye(client: Client, event: ChatMemberUpdated):
         await asyncio.sleep(60)
         await msg.delete()
 
-    # User left or was removed
+    # Goodbye message
     elif event.old_chat_member and event.old_chat_member.status in [
         enums.ChatMemberStatus.MEMBER,
         enums.ChatMemberStatus.RESTRICTED
@@ -361,41 +400,121 @@ async def status(_, m: Message):
         f"🗑 Deleted Accounts: <code>{deleted}</code>",
         parse_mode=enums.ParseMode.HTML
     )
+
 @client.on_message(filters.command("link") & filters.user(ADMIN_ID))
-async def get_redirect_link(c: Client, m: Message):
-    if not m.reply_to_message:
-        await m.reply("❗️ Please reply to a file message to get the link.")
+async def link_handler(c: Client, m: Message):
+    if not m.reply_to_message or not m.reply_to_message.document:
+        await m.reply("❌ Please reply to a document with `/link` command.", quote=True)
         return
 
-    replied = m.reply_to_message
-    file = replied.document or replied.video or replied.audio
-    if not file:
-        await m.reply("❗️ The replied message is not a supported file type.")
-        return
+    doc = m.reply_to_message.document
+    file_name = doc.file_name
+    file_id = doc.file_id
+    file_size = doc.file_size
 
+    # Forward document to log channel
     try:
-        # Copy the file to index channel
-        copied_msg = await c.copy_message(chat_id=INDEX_CHANNEL, from_chat_id=m.chat.id, message_id=replied.id)
+        fwd_msg = await c.forward_messages(
+            chat_id=LOG_CHANNEL,
+            from_chat_id=m.chat.id,
+            message_ids=m.reply_to_message.id
+        )
+    except Exception as e:
+        await m.reply(f"❌ Failed to forward document: {e}")
+        return
 
-        # Save to DB
-        data = {
-            "file_id": str(file.file_id),
-            "file_name": file.file_name,
-            "file_size": file.file_size,
-            "message_id": copied_msg.id
-        }
-        files_collection.update_one({"message_id": copied_msg.id}, {"$set": data}, upsert=True)
+    # Save file info to database
+    files_collection.insert_one({
+        "file_name": file_name,
+        "file_id": file_id,
+        "file_size": file_size,
+        "message_id": fwd_msg.id
+    })
 
-        # Create redirect link
-        redirect_link = f"{BASE_URL}/redirect?id={copied_msg.id}"
-        await m.reply(
-            f"✅ File has been indexed.\n🔗 <b>Here is your redirect link:</b>\n<a href='{redirect_link}'>{redirect_link}</a>",
-            parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True
+    await m.reply(f"✅ File indexed: <b>{file_name}</b>", parse_mode=enums.ParseMode.HTML)
+
+    # ✅ Check for matching pending requests
+    regex_pattern = re.compile(re.escape(file_name), re.IGNORECASE)
+    matching_requests = list(pending_requests.find({
+        "status": "pending",
+        "query": {"$regex": regex_pattern}
+    }))
+
+    if not matching_requests:
+        return
+
+    print(f"🔔 Found {len(matching_requests)} pending request(s) for: {file_name}")
+
+    for req in matching_requests:
+        user_id = req.get("user_id")
+        chat_id = req.get("chat_id")
+
+        # Prepare the message
+        mention = f"<a href='tg://user?id={user_id}'>Requested User</a>"
+        text = (
+            f"📥 {mention}, the file you requested <b>{file_name}</b> is now available!\n"
+            f"👉 <a href='{BASE_URL}/redirect?id={fwd_msg.id}'>Click here to download</a>"
         )
 
+        notified = False
+
+        # Try notifying in the group first
+        try:
+            await c.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode=enums.ParseMode.HTML,
+                disable_web_page_preview=True
+            )
+            notified = True
+        except Exception as group_error:
+            print(f"⚠️ Group notification failed for user {user_id}: {group_error}")
+
+        # Try notifying privately if group failed
+        if not notified:
+            try:
+                await c.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"📥 The file you requested <b>{file_name}</b> is now available!\n"
+                        f"👉 <a href='{BASE_URL}/redirect?id={fwd_msg.id}'>Click here to download</a>"
+                    ),
+                    parse_mode=enums.ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
+                notified = True
+            except Exception as private_error:
+                print(f"❌ Private notification failed for user {user_id}: {private_error}")
+
+        if notified:
+            print(f"✅ Notified user {user_id} (via {'group' if chat_id != user_id else 'private'}).")
+
+    # ✅ Mark matched requests as fulfilled
+    pending_requests.update_many(
+        {"status": "pending", "query": {"$regex": regex_pattern}},
+        {"$set": {"status": "fulfilled"}}
+    )
+
+
+
+@client.on_message(filters.command("testnotify") & filters.user(ADMIN_ID))
+async def test_notify(c: Client, m: Message):
+    user_id = 123456789  # Replace with your Telegram user ID
+    chat_id = -1001234567890  # Replace with your group chat ID
+
+    try:
+        await c.send_message(chat_id, "Test message to group")
+        print("Sent message to group")
     except Exception as e:
-        await m.reply(f"❌ Failed to process file:\n<code>{e}</code>", parse_mode=enums.ParseMode.HTML)
+        print(f"Failed to send to group: {e}")
+
+    try:
+        await c.send_message(user_id, "Test message to user")
+        print("Sent message to user")
+    except Exception as e:
+        print(f"Failed to send to user: {e}")
+
+
 
 
 @client.on_message(filters.channel & (filters.document | filters.video | filters.audio))
@@ -420,8 +539,17 @@ def get_file_buttons(files, query, page):
     buttons = []
     for f in current_files:
         size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
-        clean_name = f['file_name'].removeprefix("@Batmanlinkz").strip()
-        label = f"🎞 {size_mb}MB | {clean_name}"
+        clean_name = re.sub(r'^@[^_\s-]+[_\s-]*', '', f['file_name']).strip()
+                # Try to extract episode or season info
+        match = re.search(r'(S?\d{1,2})[\s._-]*[Vv]?[Oo]?[Ll]?[\s._-]*(E[Pp]?\d{1,3})', clean_name, re.IGNORECASE)
+        if match:
+            season = match.group(1).zfill(3 if 'E' not in match.group(1).upper() else 2).upper().replace("S", "")
+            episode = re.sub(r"[^\d]", "", match.group(2)).zfill(2)
+            episode_info = f"S{season}EP{episode}"
+            label = f"🎞 {size_mb}MB | {episode_info} | {clean_name}"
+        else:
+            label = f"🎞 {size_mb}MB | {clean_name}"
+
         buttons.append([InlineKeyboardButton(label, url=f"{BASE_URL}/redirect?id={f['message_id']}")])
 
     nav = []
@@ -438,7 +566,7 @@ def get_file_buttons(files, query, page):
 async def search(c: Client, m: Message):
     query = m.text.strip()
 
-    # Preprocess the query into regex pattern (e.g., "gen v" => "gen.*v")
+    # Preprocess query
     keywords = re.split(r"\s+", query)
     regex_pattern = ".*".join(map(re.escape, keywords))
     regex = re.compile(regex_pattern, re.IGNORECASE)
@@ -451,38 +579,39 @@ async def search(c: Client, m: Message):
         print(f"Failed to delete user message: {e}")
 
     if not results:
-        msg = await m.reply("❌ No matching files found.")
-        asyncio.create_task(delete_after_delay(msg, 15))  # ⏱️ Delete after 15 seconds
+        # Log missing query
+        log_text = (
+            f"🔍 <b>Missing File Request</b>\n\n"
+            f"👤 User: <a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>\n"
+            f"🗣 Group: <code>{m.chat.title}</code> ({m.chat.id})\n"
+            f"🔎 Query: <code>{query}</code>"
+        )
+        try:
+            await client.send_message(LOG_CHANNEL, log_text, parse_mode=enums.ParseMode.HTML)
+        except Exception as e:
+            print(f"Failed to log missing file: {e}")
+
+        # Save the query and user
+        db["pending_requests"].insert_one({
+            "query": query.lower(),
+            "user_id": m.from_user.id,
+            "chat_id": m.chat.id,
+            "status": "pending"
+        })
+
+        msg = await m.reply(
+            "❌ <b>No matching files found.</b>\n\n"
+            "📥 <b>Your request has been stored.</b>\n\n"
+            "🛎 <b>We will notify you if the file is added in the future.</b>",
+            parse_mode=enums.ParseMode.HTML
+        )
+        asyncio.create_task(delete_after_delay(msg, 15))
         return
 
     markup = get_file_buttons(results, query, 0)
     msg = await m.reply("🔍 Found the following files:", reply_markup=markup)
     asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
 
-
-@client.on_callback_query(filters.regex(r"^page_(.+)_(\d+)$"))
-async def paginate_files(c: Client, cb: CallbackQuery):
-    query = cb.matches[0].group(1)
-    page = int(cb.matches[0].group(2))
-
-    # Reconstruct the regex pattern
-    keywords = re.split(r"\s+", query)
-    regex_pattern = ".*".join(map(re.escape, keywords))
-    regex = re.compile(regex_pattern, re.IGNORECASE)
-
-    results = list(files_collection.find({"file_name": {"$regex": regex}}))
-
-    if not results:
-        await cb.answer("❌ No matching files found.", show_alert=True)
-        return
-
-    markup = get_file_buttons(results, query, page)
-    try:
-        await cb.message.edit_reply_markup(reply_markup=markup)
-    except Exception:
-        await cb.answer("❌ Couldn't update.", show_alert=True)
-    else:
-        await cb.answer()
 
 
 @client.on_callback_query(filters.regex(r"^get_(\d+)$"))
@@ -506,6 +635,27 @@ async def resend_file(c: Client, cb: CallbackQuery):
     except Exception:
         await cb.answer("❌ Failed to resend.", show_alert=True)
 
+@client.on_callback_query(filters.regex(r"^page_(.+)_(\d+)$"))
+async def paginate_files(c: Client, cb: CallbackQuery):
+    raw_query, page = cb.matches[0].group(1), int(cb.matches[0].group(2))
+    query = raw_query.replace("_", " ")  # Fix space formatting
+
+    # Convert query back to proper regex
+    keywords = re.split(r"\s+", query)
+    regex_pattern = ".*".join(map(re.escape, keywords))
+    regex = re.compile(regex_pattern, re.IGNORECASE)
+
+    results = list(files_collection.find({"file_name": {"$regex": regex}}))
+    if not results:
+        return await cb.answer("❌ No results.", show_alert=True)
+
+    markup = get_file_buttons(results, query, page)
+    try:
+        await cb.message.edit_reply_markup(markup)
+        await cb.answer()
+    except Exception as e:
+        print(f"❌ Pagination error: {e}")
+        await cb.answer("⚠️ Couldn't load page.", show_alert=True)
 
 # ------------------ Flask App -------------------
 flask_app = Flask(__name__)
