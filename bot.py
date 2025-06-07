@@ -243,8 +243,8 @@ async def send_paginated_files(c, user_id, files, page, filename_query, query: C
 
     # Notify user privately
     pm_text = (
-    "✅ <b>Your requested files have been sent to the group.\n\n"
-    "<a href='https://t.me/+Dzcz5yk-ayFjODZl'>Click Here</a></b>"
+    "✅ Your requested files have been sent to the group.\n\n"
+    "<a href='https://t.me/+Dzcz5yk-ayFjODZl'>Click Here</a>"
 )
 
     try:
@@ -312,25 +312,35 @@ async def send_file_paginated(c: Client, m: Message):
         user_id = int(parts[1])
         filename_query = parts[2].strip()
 
-        # Build regex pattern from keywords (to allow fuzzy matching)
+        # Optional: Get user info for confirmation message
+        try:
+            user = await c.get_users(user_id)
+        except Exception:
+            user = None
+
+        # Build regex pattern from keywords (fuzzy matching)
         keywords = re.split(r"\s+", filename_query)
         regex_pattern = ".*".join(map(re.escape, keywords))
         regex = re.compile(regex_pattern, re.IGNORECASE)
 
-        # Query your MongoDB collection (make sure files_collection is defined)
+        # Query MongoDB (ensure files_collection is defined elsewhere)
         matching_files = list(files_collection.find({"file_name": {"$regex": regex}}))
 
         if not matching_files:
-            return await m.reply("❌ No files found.")
+            return await m.reply("❌ No files found matching your query.")
 
-        # Call your pagination sender starting at page 0
+        # Send paginated files
         await send_paginated_files(c, user_id, matching_files, 0, filename_query)
 
-        # Confirm in the admin chat that files were sent
-        await m.reply(
-            f"✅ Sent to <a href='tg://user?id={user_id}'>User</a>",
-            parse_mode=enums.ParseMode.HTML
-        )
+        # Confirmation message
+        if user:
+            name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+            await m.reply(
+                f"✅ Sent to <a href='tg://user?id={user_id}'>{name}</a>",
+                parse_mode=enums.ParseMode.HTML
+            )
+        else:
+            await m.reply(f"✅ Files sent to user ID: <code>{user_id}</code>", parse_mode=enums.ParseMode.HTML)
 
     except Exception as e:
         await m.reply(
@@ -342,7 +352,16 @@ async def send_file_paginated(c: Client, m: Message):
 
 @client.on_message(filters.group & filters.command("start"))
 async def start_group(_, m: Message):
-    await m.reply_text("👋 Hey, I'm alive and working in this group!")
+    # Send reply message
+    msg = await m.reply_text("👋 Hey, I'm alive and working in this group!")
+
+    # Wait 60 seconds
+    await asyncio.sleep(5)
+
+    # Delete the bot's reply message
+    await msg.delete()
+
+
     
 @client.on_message(filters.command("files"))
 async def index_list(c: Client, m: Message):
@@ -557,98 +576,38 @@ async def status(_, m: Message):
         parse_mode=enums.ParseMode.HTML
     )
 
+
+
 @client.on_message(filters.command("link") & filters.user(ADMIN_ID))
 async def link_handler(c: Client, m: Message):
-    if not m.reply_to_message or not m.reply_to_message.document:
-        await m.reply("❌ Please reply to a document with `/link` command.", quote=True)
+    if not m.reply_to_message:
+        await m.reply("❌ Please reply to any message (text/media) with `/link`.", quote=True)
         return
 
-    doc = m.reply_to_message.document
-    file_name = doc.file_name
-    file_id = doc.file_id
-    file_size = doc.file_size
+    reply = m.reply_to_message
 
-    # Forward document to log channel
+    # Copy the message instead of forwarding (removes "forwarded from" tag)
     try:
-        fwd_msg = await c.forward_messages(
-            chat_id=LOG_CHANNEL,
-            from_chat_id=m.chat.id,
-            message_ids=m.reply_to_message.id
-        )
+        fwd_msg = await reply.copy(chat_id=INDEX_CHANNEL)
     except Exception as e:
-        await m.reply(f"❌ Failed to forward document: {e}")
+        await m.reply(f"❌ Failed to copy message: {e}")
         return
 
-    # Save file info to database
+    # Basic fallback for file name
+    file_name = reply.text or getattr(reply, 'caption', None) or "Unnamed"
+
+    # Save to DB
     files_collection.insert_one({
         "file_name": file_name,
-        "file_id": file_id,
-        "file_size": file_size,
-        "message_id": fwd_msg.id
+        "message_id": fwd_msg.id,
+        "type": "generic"
     })
 
-    await m.reply(f"✅ File indexed: <b>{file_name}</b>", parse_mode=enums.ParseMode.HTML)
+    redirect_link = f"{BASE_URL}/redirect?id={fwd_msg.id}"
 
-    # ✅ Check for matching pending requests
-    regex_pattern = re.compile(re.escape(file_name), re.IGNORECASE)
-    matching_requests = list(pending_requests.find({
-        "status": "pending",
-        "query": {"$regex": regex_pattern}
-    }))
-
-    if not matching_requests:
-        return
-
-    print(f"🔔 Found {len(matching_requests)} pending request(s) for: {file_name}")
-
-    for req in matching_requests:
-        user_id = req.get("user_id")
-        chat_id = req.get("chat_id")
-
-        # Prepare the message
-        mention = f"<a href='tg://user?id={user_id}'>Requested User</a>"
-        text = (
-            f"📥 {mention}, the file you requested <b>{file_name}</b> is now available!\n"
-            f"👉 <a href='{BASE_URL}/redirect?id={fwd_msg.id}'>Click here to download</a>"
-        )
-
-        notified = False
-
-        # Try notifying in the group first
-        try:
-            await c.send_message(
-                chat_id=chat_id,
-                text=text,
-                parse_mode=enums.ParseMode.HTML,
-                disable_web_page_preview=True
-            )
-            notified = True
-        except Exception as group_error:
-            print(f"⚠️ Group notification failed for user {user_id}: {group_error}")
-
-        # Try notifying privately if group failed
-        if not notified:
-            try:
-                await c.send_message(
-                    chat_id=user_id,
-                    text=(
-                        f"📥 The file you requested <b>{file_name}</b> is now available!\n"
-                        f"👉 <a href='{BASE_URL}/redirect?id={fwd_msg.id}'>Click here to download</a>"
-                    ),
-                    parse_mode=enums.ParseMode.HTML,
-                    disable_web_page_preview=True
-                )
-                notified = True
-            except Exception as private_error:
-                print(f"❌ Private notification failed for user {user_id}: {private_error}")
-
-        if notified:
-            print(f"✅ Notified user {user_id} (via {'group' if chat_id != user_id else 'private'}).")
-
-    # ✅ Mark matched requests as fulfilled
-    pending_requests.update_many(
-        {"status": "pending", "query": {"$regex": regex_pattern}},
-        {"$set": {"status": "fulfilled"}}
+    await m.reply(
+        f"✅ File indexed!\n\n<code>{redirect_link}</code>",
+        parse_mode=enums.ParseMode.HTML
     )
 
 
