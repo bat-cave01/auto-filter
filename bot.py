@@ -135,7 +135,12 @@ async def save_user(user_id):
         user = await client.get_users(user_id)
         users_collection.insert_one({"user_id": user_id})
         name = user.first_name or "Unknown"
-        msg = f"#New_Bot_User\n\n» ɴᴀᴍᴇ - {name}\n» ɪᴅ - <code>{user_id}</code>"
+
+        msg = (
+            f"#New_Bot_User\n\n"
+            f"» ɴᴀᴍᴇ - <a href='tg://user?id={user_id}'>{name}</a>\n"
+            f"» ɪᴅ - <code>{user_id}</code>"
+        )
         try:
             await client.send_message(LOG_CHANNEL, msg, parse_mode=enums.ParseMode.HTML)
         except Exception as e:
@@ -707,7 +712,13 @@ async def search(c: Client, m: Message):
         return
 
     markup = get_file_buttons(results, query, 0)
-    msg = await m.reply("🔍 Found the following files:", reply_markup=markup)
+    user = m.from_user
+    mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
+    msg = await m.reply(
+        f"🔍 Found the following files for {mention}:", 
+        reply_markup=markup, 
+        parse_mode=enums.ParseMode.HTML
+    )
     asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
 
 
@@ -716,23 +727,24 @@ async def search(c: Client, m: Message):
 async def resend_file(c: Client, cb: CallbackQuery):
     msg_id = int(cb.matches[0].group(1))
     try:
-        # Fetch original message
         original = await c.get_messages(chat_id=INDEX_CHANNEL, message_ids=msg_id)
 
-        # Try to extract the file name
+        # Extract file name or caption
         file_name = (
             getattr(original.document, "file_name", None)
+            or getattr(original.video, "file_name", None)
+            or getattr(original.audio, "file_name", None)
             or original.caption
             or "File"
         )
-        clean_name = re.sub(r'^@[^_\s-]+[_\s-]*', '', file_name).strip()
 
-        # Send the message with cleaned caption
+        clean_caption = clean_file_caption(file_name)
+
         sent = await c.copy_message(
             chat_id=cb.message.chat.id,
             from_chat_id=INDEX_CHANNEL,
             message_id=msg_id,
-            caption=clean_name,
+            caption=clean_caption,
             parse_mode=enums.ParseMode.HTML
         )
 
@@ -749,9 +761,12 @@ async def resend_file(c: Client, cb: CallbackQuery):
         await asyncio.sleep(DELETE_AFTER)
         await sent.delete()
         await warning.delete()
+
     except Exception as e:
         print(f"[ERROR] Resend failed: {e}")
         await cb.answer("❌ Failed to resend.", show_alert=True)
+
+
 
 
 @client.on_callback_query(filters.regex(r"^page_(.+)_(\d+)$"))
