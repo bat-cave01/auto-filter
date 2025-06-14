@@ -21,6 +21,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 INDEX_CHANNEL = int(os.getenv("INDEX_CHANNEL"))
 GROUP_ID = int(os.getenv("GROUP_ID"))
 DELETE_AFTER = int(os.getenv("DELETE_AFTER", 1800))
+DELETE_AFTER_FILE = int(os.getenv("DELETE_AFTER_FILE", 1800))
 BASE_URL = os.getenv("BASE_URL", "https://yourdomain.com")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "YourBotUsername")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -29,6 +30,7 @@ UPDATES_CHANNEL = os.getenv("UPDATES_CHANNEL")
 MOVIES_GROUP = os.getenv("MOVIES_GROUP")
 AUTH_CHANNEL = int(os.getenv("AUTH_CHANNEL"))
 DELETE_DELAY = int(os.getenv("DELETE_DELAY", 3600)) 
+DELETE_DELAY_REQ = int(os.getenv("DELETE_DELAY_REQ", 3600)) 
 
 # Setup
 client = Client("autofilter-bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -93,7 +95,7 @@ async def delete_after_delay(msg: Message, delay: int):
 
 
 def build_index_page(files, page):
-    PAGE_SIZE = 10
+    PAGE_SIZE = 20
     total_pages = (len(files) + PAGE_SIZE - 1) // PAGE_SIZE
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
@@ -101,8 +103,10 @@ def build_index_page(files, page):
 
     lines = ["📄 <b>Stored Files:</b>\n"]
     for i, f in enumerate(current, start=start + 1):
-        size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
-        clean_name = re.sub(r'^@[^_\s-]+[_\s-]*', '', f['file_name']).strip()
+        file_size = f.get("file_size") or 0
+        size_mb = round(file_size / (1024 * 1024), 2)
+        file_name = f.get('file_name') or ''
+        clean_name = re.sub(r'^@[^_\s-]+[_\s-]*', '', file_name).strip()
         link = f"{BASE_URL}/redirect?id={f['message_id']}"
         lines.append(f"{i}. <a href='{link}'>{clean_name}</a> ({size_mb} MB)")
 
@@ -179,7 +183,7 @@ async def check_sub_and_send_file(c: Client, m: Message, msg_id: int):
             parse_mode=enums.ParseMode.HTML
         )
 
-        await asyncio.sleep(DELETE_AFTER)
+        await asyncio.sleep(DELETE_AFTER_FILE)
         await sent.delete()
 
         await warning.edit_text(
@@ -259,7 +263,7 @@ async def send_paginated_files(c, user_id, files, page, filename_query, query: C
         pass
 
     # Async task to delete message after delay
-    async def delete_message_after_delay(msg, delay=DELETE_DELAY):
+    async def delete_message_after_delay(msg, delay=DELETE_DELAY_REQ):
         await asyncio.sleep(delay)
         try:
             await msg.delete()
@@ -278,6 +282,7 @@ async def close_index_handler(_, cb: CallbackQuery):
         await cb.answer()  # Acknowledge silently (no popup)
     except Exception:
         await cb.answer("❌ Couldn't close.", show_alert=True)
+
 
 
 @client.on_callback_query(filters.regex(r"^nav:(\d+)\|(.+):(\d+)$"))
@@ -403,7 +408,8 @@ async def paginate_index(c: Client, cb: CallbackQuery):
 
     # Clean file names before passing to build_index_page
     for f in files:
-        f['clean_name'] = re.sub(r'^@[^_\s-]+[_\s-]*', '', f['file_name']).strip()
+        file_name = f.get('file_name') or ''
+        f['clean_name'] = re.sub(r'^@[^_\s-]+[_\s-]*', '', file_name).strip()
 
     text, buttons = build_index_page(files, page)
 
@@ -524,17 +530,32 @@ async def back_to_start(_, cb: CallbackQuery):
 async def broadcast(_, m: Message):
     if not m.reply_to_message:
         return await m.reply("❗ Reply to a message to broadcast.")
-    
+
     sent, failed = 0, 0
     users = users_collection.find()
+
     for user in users:
         try:
-            await m.reply_to_message.copy(user["user_id"])
+            # Send message
+            sent_msg = await m.reply_to_message.copy(user["user_id"])
             sent += 1
+
+            # Schedule auto-delete after 10 seconds
+            asyncio.create_task(auto_delete(sent_msg, delay=172800))
         except:
             failed += 1
         await asyncio.sleep(0.1)
-    await m.reply(f"✅ Broadcast done.\n✔️ Sent: {sent}\n❌ Failed: {failed}")
+
+    # Confirmation message
+    summary = await m.reply(f"✅ Broadcast done.\n✔️ Sent: {sent}\n❌ Failed: {failed}")
+
+
+async def auto_delete(message: Message, delay: int = 10):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except:
+        pass
 
 
 @client.on_message(filters.private & filters.command("help"))
