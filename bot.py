@@ -724,12 +724,14 @@ async def search(c: Client, m: Message):
         })
 
         msg = await m.reply(
-            "❌ <b>No matching files found.</b>\n\n"
-            "📥 <b>Your request has been stored.</b>\n\n"
-            "🛎 <b>We will notify you if the file is added in the future.</b>",
+            "<b>Nᴏ Sᴇᴀʀᴄʜ Rᴇsᴜʟᴛ Fᴏᴜɴᴅ.Pᴏssɪʙʟᴇ Sᴘᴇʟʟɪɴɢ Mɪsᴛᴀᴋᴇ ᴏʀ Uɴʀᴇʟᴇᴀsᴇᴅ/Uɴᴀᴠᴀɪʟᴀʙʟᴇ Mᴏᴠɪᴇ ᴏɴ OTT Pʟᴀᴛғᴏʀᴍ</b>\n\n"
+            "<b>Rᴇᴏ̨ᴜᴇsᴛ Fᴏʀᴍᴀᴛ: Mᴏᴠɪᴇɴᴀᴍᴇ Yᴇᴀʀ</b>\n\n"
+            "<b>Eg. Bᴀᴛᴍᴀɴ Bᴇɢɪɴs 2005</b>\n\n"
+            "📥 <b>Yᴏᴜʀ ʀᴇᴏ̨ᴜᴇsᴛ ʜᴀs ʙᴇᴇɴ sᴛᴏʀᴇᴅ.</b>\n\n"
+            "🛎 <b>Wᴇ ᴡɪʟʟ Nᴏᴛɪғʏ Yᴏᴜ Iғ ᴛʜᴇ Fɪʟᴇ ɪs Aᴅᴅᴇᴅ ɪɴ ᴛʜᴇ Fᴜᴛᴜʀᴇ.</b>",
             parse_mode=enums.ParseMode.HTML
         )
-        asyncio.create_task(delete_after_delay(msg, 80))
+        asyncio.create_task(delete_after_delay(msg, 28800))
         return
 
     markup = get_file_buttons(results, query, 0)
@@ -898,18 +900,7 @@ HTML_TEMPLATE = '''
   <div class="scroll" id="scrollMessage">⬇ Scroll down to continue ⬇</div>
 
   {% for i in range(10) %}
-  <div class="ad-section">
-    <script type="text/javascript">
-      atOptions = {
-        'key' : '{{ 'c2a1b45a25c2143f809c9a7008c7fd05' if i % 2 == 0 else 'ca149717d545722020724203492181fe' }}',
-        'format' : 'iframe',
-        'height' : {{ '50' if i % 2 == 0 else '250' }},
-        'width' : {{ '320' if i % 2 == 0 else '300' }},
-        'params' : {}
-      };
-    </script>
-    <script type="text/javascript" src="//www.highperformanceformat.com/{{ 'c2a1b45a25c2143f809c9a7008c7fd05' if i % 2 == 0 else 'ca149717d545722020724203492181fe' }}/invoke.js"></script>
-  </div>
+ 
   {% endfor %}
 
   <div id="linkSection">
