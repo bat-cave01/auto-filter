@@ -727,7 +727,7 @@ async def search(c: Client, m: Message):
             "<b>Nᴏ Sᴇᴀʀᴄʜ Rᴇsᴜʟᴛ Fᴏᴜɴᴅ.Pᴏssɪʙʟᴇ Sᴘᴇʟʟɪɴɢ Mɪsᴛᴀᴋᴇ ᴏʀ Uɴʀᴇʟᴇᴀsᴇᴅ/Uɴᴀᴠᴀɪʟᴀʙʟᴇ Mᴏᴠɪᴇ ᴏɴ OTT Pʟᴀᴛғᴏʀᴍ</b>\n\n"
             "<b>Rᴇᴏ̨ᴜᴇsᴛ Fᴏʀᴍᴀᴛ: Mᴏᴠɪᴇɴᴀᴍᴇ Yᴇᴀʀ</b>\n\n"
             "<b>Eg. Bᴀᴛᴍᴀɴ Bᴇɢɪɴs 2005</b>\n\n"
-            "📥 <b>Yᴏᴜʀ ʀᴇᴏ̨ᴜᴇsᴛ ʜᴀs ʙᴇᴇɴ sᴛᴏʀᴇᴅ.</b>\n\n"
+            "📥 <b>Yᴏᴜʀ ʀᴇqᴜᴇsᴛ ʜᴀs ʙᴇᴇɴ sᴛᴏʀᴇᴅ.</b>\n\n"
             "🛎 <b>Wᴇ ᴡɪʟʟ Nᴏᴛɪғʏ Yᴏᴜ Iғ ᴛʜᴇ Fɪʟᴇ ɪs Aᴅᴅᴇᴅ ɪɴ ᴛʜᴇ Fᴜᴛᴜʀᴇ.</b>",
             parse_mode=enums.ParseMode.HTML
         )
