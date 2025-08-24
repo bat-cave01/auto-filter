@@ -2,7 +2,7 @@ import asyncio
 import re
 from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME, UPDATES_CHANNEL, MOVIES_GROUP, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER
+from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME, UPDATES_CHANNEL, MOVIES_GROUP, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER,ADMIN_ID
 from utils.helpers import save_user, delete_after_delay, check_sub_and_send_file,build_index_page,get_file_buttons,send_paginated_files
 
 PAGE_SIZE = 65  # Default delay for messages in seconds
