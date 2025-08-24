@@ -1,14 +1,15 @@
 import asyncio
 import re
 from pyrogram import Client, filters, enums
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME, UPDATES_CHANNEL, MOVIES_GROUP, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER,ADMIN_ID
-from utils.helpers import save_user, delete_after_delay, check_sub_and_send_file,build_index_page,get_file_buttons,send_paginated_files
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
+from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME, UPDATES_CHANNEL, MOVIES_GROUP,ADMIN_ID, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER
+from utils.helpers import save_user, delete_after_delay,users_collection,files_collection, check_sub_and_send_file,build_index_page,get_file_buttons,send_paginated_files
 
-PAGE_SIZE = 65  # Default delay for messages in seconds
+PAGE_SIZE = 6  # Default delay for messages in seconds
 
 # ------------------ Group /start ------------------ #
-# ------------------ /status ------------------ #
+
+
 @client.on_message(filters.command("status") & filters.user(ADMIN_ID))
 async def status(_, m: Message):
     total = users_collection.count_documents({})
@@ -17,8 +18,7 @@ async def status(_, m: Message):
 
     msg = await m.reply("⏳ Checking user status...")
 
-    users = users_collection.find()
-    for user in users:
+    for user in users_collection.find():
         try:
             await client.get_users(user["user_id"])
         except Exception as e:
@@ -26,7 +26,7 @@ async def status(_, m: Message):
                 deleted += 1
             elif "USER_IS_BLOCKED" in str(e):
                 blocked += 1
-        await asyncio.sleep(0.05)  # avoid floodwait
+        await asyncio.sleep(0.05)
 
     active = total - deleted - blocked
 
@@ -39,10 +39,9 @@ async def status(_, m: Message):
         parse_mode=enums.ParseMode.HTML
     )
 
-
 # ------------------ /send ------------------ #
 @client.on_message(filters.command("send") & filters.user(ADMIN_ID))
-async def send_file_paginated(c: Client, m: Message):
+async def send_file_paginated_handler(c: Client, m: Message):
     try:
         parts = m.text.split(maxsplit=2)
         if len(parts) < 3:
@@ -54,13 +53,12 @@ async def send_file_paginated(c: Client, m: Message):
         user_id = int(parts[1])
         filename_query = parts[2].strip()
 
-        # Optional: Get user info for confirmation
         try:
             user = await c.get_users(user_id)
         except Exception:
             user = None
 
-        # Regex search for matching files
+        # Fuzzy search using regex
         keywords = re.split(r"\s+", filename_query)
         regex_pattern = ".*".join(map(re.escape, keywords))
         regex = re.compile(regex_pattern, re.IGNORECASE)
@@ -69,7 +67,7 @@ async def send_file_paginated(c: Client, m: Message):
         if not matching_files:
             return await m.reply("❌ No files found matching your query.")
 
-        # Send paginated files
+        # Send paginated files (first page)
         await send_paginated_files(c, user_id, matching_files, 0, filename_query)
 
         # Confirmation
@@ -82,42 +80,11 @@ async def send_file_paginated(c: Client, m: Message):
     except Exception as e:
         await m.reply(f"❌ Error:\n<code>{e}</code>", parse_mode=enums.ParseMode.HTML)
 
-
-# ------------------ /broadcast ------------------ #
-@client.on_message(filters.command("broadcast") & filters.user(ADMIN_ID))
-async def broadcast(_, m: Message):
-    if not m.reply_to_message:
-        return await m.reply("❗ Reply to a message to broadcast.")
-
-    sent, failed = 0, 0
-    users = users_collection.find()
-
-    for user in users:
-        try:
-            sent_msg = await m.reply_to_message.copy(user["user_id"])
-            sent += 1
-            asyncio.create_task(auto_delete(sent_msg, delay=172800))
-        except:
-            failed += 1
-        await asyncio.sleep(0.1)
-
-    await m.reply(f"✅ Broadcast done.\n✔️ Sent: {sent}\n❌ Failed: {failed}")
-
-
-# ------------------ Auto Delete ------------------ #
-async def auto_delete(message: Message, delay: int = 10):
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-    except:
-        pass
-
-
 # ------------------ /link ------------------ #
 @client.on_message(filters.command("link") & filters.user(ADMIN_ID))
 async def link_handler(c: Client, m: Message):
     if not m.reply_to_message:
-        return await m.reply("❌ Please reply to any message (text/media) with `/link`.", quote=True)
+        return await m.reply("❌ Please reply to a message with `/link`.", quote=True)
 
     reply = m.reply_to_message
     try:
@@ -134,6 +101,46 @@ async def link_handler(c: Client, m: Message):
 
     redirect_link = f"{BASE_URL}/redirect?id={fwd_msg.id}"
     await m.reply(f"✅ File indexed!\n\n<code>{redirect_link}</code>", parse_mode=enums.ParseMode.HTML)
+
+# ------------------ Broadcast ------------------ #
+@client.on_message(filters.command("broadcast") & filters.user(ADMIN_ID))
+async def broadcast(_, m: Message):
+    if not m.reply_to_message:
+        return await m.reply("❗ Reply to a message to broadcast.")
+
+    sent, failed = 0, 0
+    for user in users_collection.find():
+        try:
+            await m.reply_to_message.copy(user["user_id"])
+            sent += 1
+        except:
+            failed += 1
+        await asyncio.sleep(0.1)
+
+    await m.reply(f"✅ Broadcast done.\n✔️ Sent: {sent}\n❌ Failed: {failed}")
+
+# ------------------ Pagination Callback ------------------ #
+@client.on_callback_query(filters.regex(r"^nav:(\d+)\|(.+):(\d+)$"))
+async def handle_pagination_nav(c: Client, query: CallbackQuery):
+    try:
+        match = re.match(r"^nav:(\d+)\|(.+):(\d+)$", query.data)
+        if not match:
+            return await query.answer("Invalid navigation.")
+
+        user_id = int(match.group(1))
+        filename_query = match.group(2)
+        page = int(match.group(3))
+
+        # Fuzzy search again
+        keywords = re.split(r"\s+", filename_query)
+        regex_pattern = ".*".join(map(re.escape, keywords))
+        regex = re.compile(regex_pattern, re.IGNORECASE)
+        matching_files = list(files_collection.find({"file_name": {"$regex": regex}}))
+
+        await send_paginated_files(c, user_id, matching_files, page, filename_query, query)
+
+    except Exception as e:
+        await query.answer(f"❌ Error: {e}", show_alert=True)
 
 
 # ------------------ /files command ------------------ #
