@@ -1,7 +1,7 @@
 from pyrogram import Client, filters, enums
 from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from config import client, files_collection, INDEX_CHANNEL, BASE_URL, DELETE_AFTER, DELETE_AFTER_FILE, AUTH_CHANNEL,UPDATES_CHANNEL, MOVIES_GROUP,BOT_USERNAME
-from utils.helpers import save_user,get_file_buttons,build_index_page,is_subscribed,check_sub_and_send_file,build_custom_caption
+from utils.helpers import save_user,get_file_buttons,build_index_page,is_subscribed,check_sub_and_send_file,build_custom_caption,send_paginated_files
 import asyncio, re
 
 # Close index
