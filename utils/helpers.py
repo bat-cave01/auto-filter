@@ -194,6 +194,7 @@ async def send_paginated_files(c: Client, user_id, files, page, filename_query, 
     user = await c.get_users(user_id)
     full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
 
+    # Pagination calculation
     total_pages = (len(files) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
     page = max(0, min(page, total_pages - 1))
     start = page * ITEMS_PER_PAGE
@@ -210,32 +211,54 @@ async def send_paginated_files(c: Client, user_id, files, page, filename_query, 
         text += f"➤ <b>{file_name}</b> — {file_size} MB\n"
         text += f"    <a href='{BASE_URL}/redirect?id={msg_id}'>📥 Download</a>\n\n"
 
+    # Navigation buttons
     buttons = []
     nav_buttons = []
-
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"nav:{user_id}|{filename_query}:{page - 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton("⬅️ Prev", callback_data=f"nav:{user_id}|{filename_query}:{page - 1}")
+        )
     if page < total_pages - 1:
-        nav_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"nav:{user_id}|{filename_query}:{page + 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton("➡️ Next", callback_data=f"nav:{user_id}|{filename_query}:{page + 1}")
+        )
     if nav_buttons:
         buttons.append(nav_buttons)
-
     markup = InlineKeyboardMarkup(buttons) if buttons else None
 
+    # Send or edit message
     if query:
-        await query.edit_message_text(text, reply_markup=markup, parse_mode=enums.ParseMode.HTML, disable_web_page_preview=True)
+        await query.edit_message_text(
+            text,
+            reply_markup=markup,
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True
+        )
         msg = query.message
     else:
-        msg = await c.send_message(GROUP_ID, text, reply_markup=markup, parse_mode=enums.ParseMode.HTML, disable_web_page_preview=True)
+        msg = await c.send_message(
+            GROUP_ID,
+            text,
+            reply_markup=markup,
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True
+        )
 
-    # Notify user privately
-    pm_text = "✅ Your requested files have been sent to the group.\n\n<a href='https://t.me/+Dzcz5yk-ayFjODZl'>Click Here</a>"
-    try:
-        await c.send_message(user_id, pm_text)
-    except Exception:
-        pass
+        # ✅ Send PM only on first send, not on pagination
+        pm_text = (
+            "✅ Your requested files have been sent to the group.\n\n"
+            "<a href='https://t.me/+Dzcz5yk-ayFjODZl'>Click Here</a>"
+        )
+        try:
+            await c.send_message(user_id, pm_text)
+        except Exception:
+            pass
 
+    # Auto-delete after delay
     asyncio.create_task(delete_after_delay(msg, DELETE_DELAY_REQ))
+
+
+
 def get_file_buttons(files, query, page):
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
