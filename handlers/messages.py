@@ -260,25 +260,40 @@ async def search(c: Client, m: Message):
     regex = re.compile(regex_pattern, re.IGNORECASE)
     results = list(files_collection.find({"file_name": {"$regex": regex}}))
 
+    # Try to delete user’s message (ignore errors)
     try:
         await m.delete()
     except Exception:
         pass
 
+    # ✅ No results found
     if not results:
         if m.chat.type == enums.ChatType.PRIVATE:
             msg = await m.reply("❗️No Results found.", parse_mode=enums.ParseMode.HTML)
         else:
+            # Build safe user info
+            if m.from_user:
+                mention = (
+                    f"👤 User: <a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>\n"
+                    f"🆔 User ID: <code>{m.from_user.id}</code>\n"
+                )
+            else:
+                mention = "👤 User: <i>Unknown (possibly channel/system message)</i>\n"
+
             chat_info = f"🗣 Group: <code>{m.chat.title}</code> ({m.chat.id})"
             log_text = (
                 f"🔍 <b>Missing File Request</b>\n\n"
-                f"👤 User: <a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>\n"
-                f"🆔 User ID: <code>{m.from_user.id}</code>\n"
+                f"{mention}"
                 f"{chat_info}\n"
                 f"💬 Chat ID: <code>{m.chat.id}</code>\n"
                 f"🔎 Query: <code>{query}</code>"
             )
-            await client.send_message(LOG_CHANNEL, log_text, parse_mode=enums.ParseMode.HTML)
+
+            if LOG_CHANNEL:
+                try:
+                    await client.send_message(LOG_CHANNEL, log_text, parse_mode=enums.ParseMode.HTML)
+                except Exception:
+                    pass
 
             msg = await m.reply(
                 "<b>Nᴏ Sᴇᴀʀᴄʜ Rᴇsᴜʟᴛ Fᴏᴜɴᴅ. Pᴏssɪʙʟᴇ Sᴘᴇʟʟɪɴɢ Mɪsᴛᴀᴋᴇ ᴏʀ Uɴʀᴇʟᴇᴀsᴇᴅ/Uɴᴀᴠᴀɪʟᴀʙʟᴇ Mᴏᴠɪᴇ ᴏɴ OTT Pʟᴀᴛғᴏʀᴍ (Theater Prints are not Available).</b>\n\n"
@@ -291,16 +306,23 @@ async def search(c: Client, m: Message):
         asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
         return
 
-    # ✅ Results found (also auto delete)
+    # ✅ Results found
     markup = get_file_buttons(results, query, 0)
-    user = m.from_user
-    mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
+    if m.from_user:
+        mention = f"<a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>"
+    else:
+        mention = "Unknown User"
+
     msg = await m.reply(
         f"🔍 Found the following files for {mention}:",
         reply_markup=markup,
         parse_mode=enums.ParseMode.HTML
     )
-    asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
+
+    # Auto-delete only in groups
+    if m.chat.type != enums.ChatType.PRIVATE:
+        asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
+
 
 
 
