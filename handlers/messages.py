@@ -22,6 +22,50 @@ async def help_cmd(c, m: Message):
     )
 
 
+# ------------------ /report Command ------------------ #
+@client.on_message(filters.command("report") & (filters.group | filters.private))
+async def report_handler(c: Client, m: Message):
+    # Extract report text
+    parts = m.text.split(maxsplit=1)
+    if len(parts) < 2:
+        return await m.reply(
+            "❗ Usage:\n<code>/report your message here</code>",
+            parse_mode=enums.ParseMode.HTML
+        )
+
+    report_text = parts[1].strip()
+
+    # Build user info safely
+    if m.from_user:
+        user_mention = f"<a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>"
+        user_id = m.from_user.id
+    else:
+        user_mention = "Unknown User"
+        user_id = "N/A"
+
+    chat_info = (
+        f"🗣 Group: <code>{m.chat.title}</code> ({m.chat.id})"
+        if m.chat.type != enums.ChatType.PRIVATE else "👤 Private Chat"
+    )
+
+    log_text = (
+        f"🚨 <b>New Report</b>\n\n"
+        f"👤 From: {user_mention}\n"
+        f"🆔 User ID: <code>{user_id}</code>\n"
+        f"{chat_info}\n\n"
+        f"📝 Report:\n<code>{report_text}</code>"
+    )
+
+    try:
+        if LOG_CHANNEL:
+            await client.send_message(LOG_CHANNEL, log_text, parse_mode=enums.ParseMode.HTML)
+            await m.reply("✅ Your report has been submitted. Thanks!", quote=True)
+        else:
+            await m.reply("❌ Log channel is not set.", quote=True)
+    except Exception as e:
+        await m.reply(f"❌ Failed to send report:\n<code>{e}</code>", parse_mode=enums.ParseMode.HTML)
+
+
 @client.on_message(filters.command("status") & filters.user(ADMIN_ID))
 async def status(_, m: Message):
     total = users_collection.count_documents({})
