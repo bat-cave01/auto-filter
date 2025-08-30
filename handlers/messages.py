@@ -2,7 +2,7 @@ import asyncio
 import re
 from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
-from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME, UPDATES_CHANNEL, MOVIES_GROUP,ADMIN_ID, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER
+from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME,INDEX_CHANNEL, UPDATES_CHANNEL, MOVIES_GROUP,ADMIN_ID, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER
 from utils.helpers import save_user, delete_after_delay,users_collection,files_collection, check_sub_and_send_file,build_index_page,get_file_buttons,send_paginated_files
 
 PAGE_SIZE = 6  # Default delay for messages in seconds
@@ -296,19 +296,25 @@ async def start(c: Client, m: Message):
 @client.on_message((filters.group | filters.private) & filters.text)
 async def search(c: Client, m: Message):
     if m.text.startswith("/"):
-        return  # Ignore commands
+        return  # 🚫 Ignore commands
 
     # 🚫 Skip anonymous admin or channel posts
     if not m.from_user:  
         return  
 
     query = m.text.strip()
+    if not query:
+        return  
+
+    # 🔎 Build regex for keyword search
     keywords = re.split(r"\s+", query)
     regex_pattern = ".*".join(map(re.escape, keywords))
     regex = re.compile(regex_pattern, re.IGNORECASE)
+
+    # 📂 Search in DB
     results = list(files_collection.find({"file_name": {"$regex": regex}}))
 
-    # ✅ No results found
+    # ✅ No results
     if not results:
         if m.chat.type == enums.ChatType.PRIVATE:
             msg = await m.reply(
@@ -345,16 +351,57 @@ async def search(c: Client, m: Message):
         return
 
     # ✅ Results found
-    markup = get_file_buttons(results, query, 0)
-    mention = f"<a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>"
+    try:
+        markup = get_file_buttons(results, query, 0)
+        if not markup:  # safeguard against "No files" error
+            raise ValueError("No buttons built")
 
-    msg = await m.reply(
-        f"🔍 Found the following files for {mention}:",
-        reply_markup=markup,
-        parse_mode=enums.ParseMode.HTML
-    )
+        mention = f"<a href='tg://user?id={m.from_user.id}'>{m.from_user.first_name}</a>"
+        msg = await m.reply(
+            f"🔍 Found the following files for {mention}:",
+            reply_markup=markup,
+            parse_mode=enums.ParseMode.HTML
+        )
 
-    if m.chat.type != enums.ChatType.PRIVATE:
+        # 🔥 Always auto-delete results after DELETE_AFTER seconds
+        asyncio.create_task(delete_after_delay(msg, DELETE_AFTER))
+
+    except Exception as e:
+        # fallback message to prevent "No files found" bug
+        msg = await m.reply(
+            f"⚠️ Something went wrong while building file buttons.\n\n<b>Error:</b> <code>{e}</code>",
+            parse_mode=enums.ParseMode.HTML
+        )
         asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
 
 
+
+
+@client.on_message(filters.chat(INDEX_CHANNEL) & (filters.document | filters.video | filters.audio))
+async def index_files(c: Client, m: Message):
+    file_name = None
+    file_size = None
+
+    if m.document:
+        file_name = m.document.file_name
+        file_size = m.document.file_size
+    elif m.video:
+        file_name = m.video.file_name or m.caption or "Video"
+        file_size = m.video.file_size
+    elif m.audio:
+        file_name = m.audio.file_name or m.caption or "Audio"
+        file_size = m.audio.file_size
+
+    # fallback if still None
+    if not file_name:
+        file_name = m.caption or f"File-{m.message_id}"
+
+    files_collection.update_one(
+        {"message_id": m.id},
+        {"$set": {
+            "file_name": file_name,
+            "file_size": file_size,
+            "message_id": m.id
+        }},
+        upsert=True
+    )
