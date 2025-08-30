@@ -1,5 +1,6 @@
 import asyncio
 import re
+import urllib.parse
 import socket
 from pyrogram import enums, Client
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
@@ -259,11 +260,22 @@ async def send_paginated_files(c: Client, user_id, files, page, filename_query, 
 
 
 
+import urllib.parse
+
 def get_file_buttons(files, query, page):
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
     current_files = files[start:end]
     buttons = []
+
+    # Encode the query so spaces/specials don't break callback_data
+    encoded_query = urllib.parse.quote(query)
+
+    # 📤 Send All (this page)
+    if current_files:
+        buttons.append([
+            InlineKeyboardButton("📤 Send All", callback_data=f"sendall_{encoded_query}_{page}")
+        ])
 
     for f in current_files:
         size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
@@ -278,11 +290,12 @@ def get_file_buttons(files, query, page):
             label = f"🎞 {size_mb}MB | {clean_name}"
         buttons.append([InlineKeyboardButton(label, url=f"{BASE_URL}/redirect?id={f['message_id']}")])
 
+    # Prev / Next (also encode!)
     nav = []
     if start > 0:
-        nav.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"page_{query}_{page - 1}"))
+        nav.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"page_{encoded_query}_{page - 1}"))
     if end < len(files):
-        nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"page_{query}_{page + 1}"))
+        nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"page_{encoded_query}_{page + 1}"))
     if nav:
         buttons.append(nav)
 
