@@ -1,7 +1,7 @@
 from pyrogram import Client, filters, enums
 from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from config import client, files_collection, INDEX_CHANNEL, BASE_URL, DELETE_AFTER, DELETE_AFTER_FILE, AUTH_CHANNEL,UPDATES_CHANNEL, MOVIES_GROUP,BOT_USERNAME
-from utils.helpers import save_user,get_file_buttons,build_index_page,is_subscribed,check_sub_and_send_file,build_custom_caption,send_paginated_files
+from utils.helpers import save_user,get_file_buttons,build_index_page,is_subscribed,delete_after_delay,check_sub_and_send_file,build_custom_caption,send_paginated_files,send_file_with_caption
 import asyncio, re
 
 # Close index
@@ -222,5 +222,75 @@ async def paginate_files(c: Client, cb: CallbackQuery):
     except Exception as e:
         print(f"❌ Pagination error: {e}")
         await cb.answer("⚠️ Couldn't load page.", show_alert=True)
+
+PAGE_SIZE=6
+
+@client.on_callback_query(filters.regex(r"^sendall_(.+)_(\d+)$"))
+async def send_all_files_callback(c: Client, q: CallbackQuery):
+    import urllib.parse
+
+    raw = q.matches[0].group(1)
+    query = urllib.parse.unquote(raw)
+    page = int(q.matches[0].group(2))
+
+    await save_user(q.from_user.id)
+
+    # 🔎 Build regex like in search
+    keywords = re.split(r"\s+", query.strip())
+    pattern = ".*".join([re.escape(k) for k in keywords if k])
+    mongo_filter = {"file_name": {"$regex": pattern, "$options": "i"}}
+
+    files = list(files_collection.find(mongo_filter).sort("file_name", 1))
+    total_files = len(files)
+    if total_files == 0:
+        await q.answer("No files found for this search.", show_alert=True)
+        return
+
+    start = page * PAGE_SIZE
+    end = min(start + PAGE_SIZE, total_files)
+    current_files = files[start:end]
+
+    if not current_files:
+        await q.answer("No files on this page.", show_alert=True)
+        return
+
+    # 🔔 POPUP immediately when button clicked
+    await q.answer(
+        f"📤 Sending {len(current_files)} files to your DM...",
+        show_alert=True
+    )
+
+    # ✅ Send each file
+    for f in current_files:
+        try:
+            sent = await c.copy_message(
+                chat_id=q.from_user.id,
+                from_chat_id=INDEX_CHANNEL,
+                message_id=f["message_id"]
+            )
+            asyncio.create_task(delete_after_delay(sent, DELETE_AFTER_FILE))
+            await asyncio.sleep(0.5)  # avoid FloodWait
+        except Exception as e:
+            print(f"Error sending file: {e}")
+
+    # ⚠️ Send ONE final important notice
+    try:
+        caption_msg = await c.send_message(
+            q.from_user.id,
+            (
+                f"<b><u>❗️❗️❗️ IMPORTANT ❗️❗️❗️</u></b>\n\n"
+                f"ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ɪɴ <b><u>{DELETE_AFTER_FILE//60}</u> ᴍɪɴᴜᴛᴇs</b> 🫥 "
+                "(ᴅᴜᴇ ᴛᴏ ᴄᴏᴘʏʀɪɢʜᴛ ɪssᴜᴇs).\n\n"
+                "<b>📌 Please forward this message to your Saved Messages or any private chat to avoid losing it.</b>"
+            ),
+            parse_mode=enums.ParseMode.HTML
+        )
+        asyncio.create_task(delete_after_delay(caption_msg, DELETE_AFTER_FILE))
+    except Exception as e:
+        print(f"Error sending caption: {e}")
+
+
+
+
 
 # TODO: Other callbacks (pagination, retry, resend_file, etc.) should be added here based on original bot.py
