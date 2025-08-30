@@ -260,18 +260,17 @@ async def send_paginated_files(c: Client, user_id, files, page, filename_query, 
 
 
 
-import urllib.parse
-
 def get_file_buttons(files, query, page):
+    total_files = len(files)
     start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
+    end = min(start + PAGE_SIZE, total_files)   # ✅ prevent overflow
     current_files = files[start:end]
     buttons = []
 
-    # Encode the query so spaces/specials don't break callback_data
+    # Encode query safely
     encoded_query = urllib.parse.quote(query)
 
-    # 📤 Send All (this page)
+    # 📤 Send All (for this page only)
     if current_files:
         buttons.append([
             InlineKeyboardButton("📤 Send All", callback_data=f"sendall_{encoded_query}_{page}")
@@ -280,6 +279,8 @@ def get_file_buttons(files, query, page):
     for f in current_files:
         size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
         clean_name = re.sub(r'^@[^_\s-]+[_\s-]*', '', f['file_name']).strip()
+
+        # Extract SxxExx if present
         match = re.search(r'(S?\d{1,2})[\s._-]*[Vv]?[Oo]?[Ll]?[\s._-]*(E[Pp]?\d{1,3})', clean_name, re.IGNORECASE)
         if match:
             season = match.group(1).upper().replace("S", "").zfill(2)
@@ -288,15 +289,22 @@ def get_file_buttons(files, query, page):
             label = f"🎞 {size_mb}MB | {episode_info} | {clean_name}"
         else:
             label = f"🎞 {size_mb}MB | {clean_name}"
-        buttons.append([InlineKeyboardButton(label, url=f"{BASE_URL}/redirect?id={f['message_id']}")])
 
-    # Prev / Next (also encode!)
+        buttons.append([
+            InlineKeyboardButton(label, url=f"{BASE_URL}/redirect?id={f['message_id']}")
+        ])
+
+    # ✅ Navigation buttons
     nav = []
-    if start > 0:
+    if page > 0:   # not first page
         nav.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"page_{encoded_query}_{page - 1}"))
-    if end < len(files):
+
+    # check that next page has at least 1 item
+    if (page + 1) * PAGE_SIZE < total_files:
         nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"page_{encoded_query}_{page + 1}"))
+
     if nav:
         buttons.append(nav)
 
     return InlineKeyboardMarkup(buttons)
+
