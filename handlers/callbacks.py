@@ -3,6 +3,8 @@ from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBu
 from config import client, files_collection, INDEX_CHANNEL, BASE_URL, DELETE_AFTER, DELETE_AFTER_FILE, AUTH_CHANNEL,UPDATES_CHANNEL, MOVIES_GROUP,BOT_USERNAME
 from utils.helpers import save_user,get_file_buttons,build_index_page,is_subscribed,delete_after_delay,check_sub_and_send_file,build_custom_caption,send_paginated_files,send_file_with_caption
 import asyncio, re
+import urllib.parse
+import math
 
 # Close index
 @client.on_callback_query(filters.regex("close_index"))
@@ -204,18 +206,31 @@ async def resend_file(c: Client, cb: CallbackQuery):
 @client.on_callback_query(filters.regex(r"^page_(.+)_(\d+)$"))
 async def paginate_files(c: Client, cb: CallbackQuery):
     raw_query, page = cb.matches[0].group(1), int(cb.matches[0].group(2))
-    query = raw_query.replace("_", " ")  # Fix space formatting
 
-    # Convert query back to proper regex
-    keywords = re.split(r"\s+", query)
+    # ✅ Properly decode the query
+    query = urllib.parse.unquote(raw_query)
+
+    # Build regex search
+    keywords = re.split(r"\s+", query.strip())
     regex_pattern = ".*".join(map(re.escape, keywords))
     regex = re.compile(regex_pattern, re.IGNORECASE)
 
+    # Fetch results
     results = list(files_collection.find({"file_name": {"$regex": regex}}))
-    if not results:
-        return await cb.answer("❌ No results.", show_alert=True)
+    total_files = len(results)
+    if total_files == 0:
+        return await cb.answer("❌ No results found.", show_alert=True)
 
+    # ✅ Clamp page within valid range
+    total_pages = math.ceil(total_files / PAGE_SIZE)
+    if page < 0:
+        page = 0
+    elif page >= total_pages:
+        page = total_pages - 1
+
+    # Build new markup
     markup = get_file_buttons(results, query, page)
+
     try:
         await cb.message.edit_reply_markup(markup)
         await cb.answer()
