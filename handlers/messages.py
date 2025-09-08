@@ -341,10 +341,7 @@ async def search(c: Client, m: Message):
                     pass
 
             msg = await m.reply(
-                "<b>Nᴏ Sᴇᴀʀᴄʜ Rᴇsᴜʟᴛ Fᴏᴜɴᴅ. Pᴏssɪʙʟᴇ Sᴘᴇʟʟɪɴɢ Mɪsᴛᴀᴋᴇ ᴏʀ Uɴʀᴇʟᴇᴀsᴇᴅ/Uɴᴀᴠᴀɪʟᴀʙʟᴇ Mᴏᴠɪᴇ ᴏɴ OTT Pʟᴀᴛғᴏʀᴍ (Theater Prints are not Available).</b>\n\n"
-                "<b>Note:</b>\n"
-                "<b>Dᴏɴ'ᴛ Mᴇɴᴛɪᴏɴ \"ᴛᴀᴍɪʟ ᴅᴜʙʙᴇᴅ\" ᴏʀ \"ᴛᴀᴍɪʟ ᴍᴏᴠɪᴇs\"</b>\n"
-                "<b>Jᴜsᴛ Sᴇɴᴅ Mᴏᴠɪᴇ Nᴀᴍᴇ ᴡɪᴛʜ Yᴇᴀʀ</b>",
+                "<b>Nᴏ Sᴇᴀʀᴄʜ Rᴇsᴜʟᴛ Fᴏᴜɴᴅ. Pᴏssɪʙʟᴇ Sᴘᴇʟʟɪɴɢ Mɪsᴛᴀᴋᴇ ᴏʀ Uɴʀᴇʟᴇᴀsᴇᴅ/Uɴᴀᴠᴀɪʟᴀʙʟᴇ Mᴏᴠɪᴇ ᴏɴ OTT Pʟᴀᴛғᴏʀᴍ (Theater Prints are not Available).</b>\n\n",
                 parse_mode=enums.ParseMode.HTML
             )
             asyncio.create_task(delete_after_delay(msg, DELETE_DELAY))
