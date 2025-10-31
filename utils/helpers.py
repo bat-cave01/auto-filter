@@ -3,11 +3,11 @@ import re
 import urllib.parse
 import socket
 from pyrogram import enums, Client
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery,WebAppInfo
 from config import (
     client, files_collection, users_collection, LOG_CHANNEL, BASE_URL, 
     DELETE_AFTER_FILE, DELETE_AFTER, DELETE_DELAY_REQ, INDEX_CHANNEL, 
-    AUTH_CHANNEL, GROUP_ID
+    AUTH_CHANNEL, GROUP_ID,MINI_APP_URL
 )
 
 # ------------------ User Utilities ------------------ #
@@ -263,18 +263,14 @@ async def send_paginated_files(c: Client, user_id, files, page, filename_query, 
 def get_file_buttons(files, query, page):
     total_files = len(files)
     start = page * PAGE_SIZE
-    end = min(start + PAGE_SIZE, total_files)   # ✅ prevent overflow
+    end = min(start + PAGE_SIZE, total_files)  # ✅ prevent overflow
     current_files = files[start:end]
     buttons = []
 
     # Encode query safely
     encoded_query = urllib.parse.quote(query)
 
-    # 📤 Send All (for this page only)
-    if current_files:
-        buttons.append([
-            InlineKeyboardButton("📤 Send All", callback_data=f"sendall_{encoded_query}_{page}")
-        ])
+    # ❌ Removed "📤 Send All" section
 
     for f in current_files:
         size_mb = round(f.get("file_size", 0) / (1024 * 1024), 2)
@@ -296,15 +292,15 @@ def get_file_buttons(files, query, page):
 
     # ✅ Navigation buttons
     nav = []
-    if page > 0:   # not first page
+    if page > 0:  # not first page
         nav.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"page_{encoded_query}_{page - 1}"))
 
-    # check that next page has at least 1 item
-    if (page + 1) * PAGE_SIZE < total_files:
+    if (page + 1) * PAGE_SIZE < total_files:  # next page exists
         nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"page_{encoded_query}_{page + 1}"))
 
     if nav:
         buttons.append(nav)
 
     return InlineKeyboardMarkup(buttons)
+
 
