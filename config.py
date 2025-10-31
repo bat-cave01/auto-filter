@@ -24,6 +24,9 @@ DELETE_AFTER_FILE = int(os.getenv("DELETE_AFTER_FILE", 1800))
 DELETE_DELAY = int(os.getenv("DELETE_DELAY", 3600))
 DELETE_DELAY_REQ = int(os.getenv("DELETE_DELAY_REQ", 3600))
 
+MINI_APP_URL = os.getenv("MINI_APP_URL", "https://yourdomain.com")
+
+
 client = Client("autofilter-bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 mongo = MongoClient(MONGO_URI)
