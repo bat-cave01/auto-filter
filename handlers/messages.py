@@ -1,8 +1,8 @@
 import asyncio
 import re
 from pyrogram import Client, filters, enums
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
-from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME,INDEX_CHANNEL, UPDATES_CHANNEL, MOVIES_GROUP,ADMIN_ID, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery,WebAppInfo
+from config import client, files_collection, GROUP_ID, BASE_URL, BOT_USERNAME,INDEX_CHANNEL,MINI_APP_URL, UPDATES_CHANNEL, MOVIES_GROUP,ADMIN_ID, LOG_CHANNEL,DELETE_DELAY,DELETE_AFTER
 from utils.helpers import save_user, delete_after_delay,users_collection,files_collection, check_sub_and_send_file,build_index_page,get_file_buttons,send_paginated_files
 
 PAGE_SIZE = 6  # Default delay for messages in seconds
@@ -269,19 +269,32 @@ async def start(c: Client, m: Message):
         asyncio.create_task(delete_after_delay(msg, DELETE_AFTER))
         return
 
-    # Default welcome (same for private & group)
+    # Default welcome
     name = m.from_user.first_name if m.from_user else "User"
+
+    # Private: show WebApp button (opens inside Telegram)
+    if m.chat.type == enums.ChatType.PRIVATE:
+        keyboard = InlineKeyboardMarkup([
+            [ InlineKeyboardButton("🚀 Open Mini App", web_app=WebAppInfo(url=MINI_APP_URL)) ],
+            [ InlineKeyboardButton("📢 Updates Channel", url=UPDATES_CHANNEL),
+              InlineKeyboardButton("Help❓", callback_data="help_info") ],
+            [ InlineKeyboardButton("🎬 Movie Group", url=MOVIES_GROUP) ]
+        ])
+    else:
+        # Group: don't show web_app button (it may not behave well in groups),
+        # show link to bot or channel instead
+        keyboard = InlineKeyboardMarkup([
+            [ InlineKeyboardButton("➕ Add Me To Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true") ],
+            [ InlineKeyboardButton("📢 Updates Channel", url=UPDATES_CHANNEL),
+              InlineKeyboardButton("Help❓", callback_data="help_info") ],
+        ])
+
     msg = await m.reply_text(
         f"😎 ʜᴇʏ {name},\n\n"
         "ɪ ᴀᴍ ᴀ ғɪʟᴛᴇʀ ʙᴏᴛ...\n\n"
         "ғᴏʀ ɴᴇᴡ ᴍᴏᴠɪᴇs ᴊᴏɪɴ ʜᴇʀᴇ @Batmanlinkz\n\n"
         "ᴛᴏ ᴋɴᴏᴡ ᴍᴏʀᴇ ᴄʟɪᴄᴋ ʜᴇʟᴘ ʙᴜᴛᴛᴏɴ.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Add Me To Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
-            [InlineKeyboardButton("📢 Updates Channel", url=UPDATES_CHANNEL),
-             InlineKeyboardButton("Help❓", callback_data="help_info")],
-            [InlineKeyboardButton("🎬 Movie Group", url=MOVIES_GROUP)]
-        ]),
+        reply_markup=keyboard,
         parse_mode=enums.ParseMode.HTML
     )
 
