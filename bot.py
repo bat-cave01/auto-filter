@@ -54,7 +54,7 @@ HOME_TEMPLATE = """
 <!doctype html>
 <html lang="en">
 <head>
-  <title>Home — File Portal</title>
+  <title>Iᴀᴍ Bᴀᴛᴍᴀɴ</title>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
   <link rel="icon" type="image/png" href="/static/favicon.png">
@@ -82,13 +82,51 @@ HOME_TEMPLATE = """
   <div class="page-bg"></div>
   <div class="center-full container" role="main" aria-labelledby="home-title">
     <img src="/static/logo.png" alt="Logo" class="logo" />
-    <div id="home-title" class="title">Welcome to Batman's Files Storage</div>
-    <div class="subtitle small">Get stored files via Telegram quickly. Use the portal to browse & get files.</div>
+    <div id="home-title" class="title">Wᴇʟᴄᴏᴍᴇ ᴛᴏ Bᴀᴛᴍᴀɴ's Fɪʟᴇs Sᴛᴏʀᴀɢᴇ</div>
+    <div class="subtitle small">Aᴄᴄᴇss sᴛᴏʀᴇᴅ ғɪʟᴇs ɪɴsᴛᴀɴᴛʟʏ ᴠɪᴀ Tᴇʟᴇɢʀᴀᴍ. Bʀᴏᴡsᴇ, sᴇᴀʀᴄʜ, ᴀɴᴅ ᴅᴏᴡɴʟᴏᴀᴅ ғɪʟᴇs ᴇғғᴏʀᴛʟᴇssʟʏ.</div>
 
     <div class="home-actions">
-      <button class="glow-btn" onclick="location.href='{{ url_for('files_list') }}'">📁 View Stored Files</button>
+      <button class="glow-btn" onclick="location.href='{{ url_for('files_list') }}'">📁 Vɪᴇᴡ Sᴛᴏʀᴇᴅ Fɪʟᴇs</button>
       
   </div>
+
+  <!-- Footer -->
+<footer class="site-footer">
+  <div class="footer-content">
+    © 2025 IAmBatman. All Rights Reserved.
+  </div>
+</footer>
+
+<style>
+.site-footer {
+  width: 100%;
+  padding: 14px 0;
+  background: rgba(0, 0, 0, 0.25);
+  text-align: center;
+  color: rgba(230, 247, 251, 0.7);
+  font-size: 0.88rem;
+  position: relative;
+  bottom: 0;
+  margin-top: 220px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(4px);
+}
+.site-footer .footer-content {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.site-footer a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.site-footer a:hover {
+  text-decoration: underline;
+}
+@media(max-width:600px){
+  .site-footer { font-size: 0.82rem; padding: 12px 8px; margin-top: 350px; }
+}
+</style>
+
 </body>
 </html>
 """
@@ -98,10 +136,12 @@ REDIRECT_TEMPLATE = """
 <!doctype html>
 <html lang="en">
 <head>
-  <title>Redirect — {{ file_name }}</title>
+  <title>Iᴀᴍ Bᴀᴛᴍᴀɴ : {{ file_name }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-Qf6gkbhURu0bXFlXN0JjF5U9epVJt5XJkTR3R3aJv1j/lX0XfN6nxCPLQ+7oK93kN6mH/Vp4rX6xgMWTlrLgAQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
   <link rel="icon" type="image/png" href="/static/favicon.ico">
+
   """ + COMMON_HEAD + """
   <style>
     /* Navigation Bar */
@@ -136,7 +176,21 @@ REDIRECT_TEMPLATE = """
       padding:20px 22px; border-radius:14px; border:1px solid rgba(255,255,255,0.04);
     }
 
-    h1 { margin:6px 0 10px 0; color:var(--primary); }
+    h1 { 
+        margin:6px 0 10px 0; 
+        color:var(--primary); 
+        word-break: break-all;      /* ✅ break long words anywhere */
+        overflow-wrap: anywhere;    /* ✅ for modern browsers */
+        hyphens: auto;              /* optional: insert hyphens if needed */
+      }
+
+    .small {
+        font-size:0.95rem;
+        color:rgba(230,247,251,0.84);
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
 
     .loading-bar {
       width:90%; max-width:620px; height:10px;
@@ -161,7 +215,7 @@ REDIRECT_TEMPLATE = """
       box-shadow:0 10px 40px rgba(0,188,212,0.12);
     }
 
-    .small { font-size:0.95rem; color:rgba(230,247,251,0.84); }
+  
 
     /* Ad containers (tight spacing near card) */
     .ad-container {
@@ -205,7 +259,7 @@ REDIRECT_TEMPLATE = """
     <div>
       <a href="{{ url_for('home') }}">🏠 Home</a>
       <a href="{{ url_for('files_list') }}">📁 Files List</a>
-      <a id="backBtn" href="#" style="display:none;">← Back</a>
+      <a id="backBtn" href="#" style="display:none;">← Bᴀᴄᴋ</a>
     </div>
   </div>
 
@@ -228,18 +282,22 @@ REDIRECT_TEMPLATE = """
     <div class="card-centered card">
       <img src="/static/logo.png" class="logo" alt="Logo" />
       <h1>{{ file_name }}</h1>
-      <div class="small">Preparing your file — please wait</div>
+      <div class="small">Pʀᴇᴘᴀʀɪɴɢ ʏᴏᴜʀ ғɪʟᴇ : ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ</div>
 
       <div class="loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div class="loading-fill" id="loadingFill"></div>
       </div>
 
-      <a id="fileLink" href="https://t.me/{{ bot_username }}?start=file_{{ msg_id }}">
-        <button id="getButton" aria-hidden="true">📥 Get File</button>
+     <a id="fileLink" href="https://t.me/{{ bot_username }}?start=file_{{ msg_id }}">
+        <button id="getButton" aria-hidden="true">
+          <img src="https://cdn-icons-png.flaticon.com/512/724/724933.png" alt="Download" style="width:16px; height:16px; vertical-align:middle; margin-right:6px;">
+          Gᴇᴛ Fɪʟᴇ
+        </button>
       </a>
 
+
       <div class="small" style="margin-top:12px; color:rgba(230,247,251,0.6)">
-        If the button doesn't appear after a few seconds, try refreshing.
+        Iғ ᴛʜᴇ ʙᴜᴛᴛᴏɴ ᴅᴏᴇsɴ'ᴛ ᴀᴘᴘᴇᴀʀ ᴀғᴛᴇʀ ᴀ ғᴇᴡ sᴇᴄᴏɴᴅs, ᴛʀʏ ʀᴇғʀᴇsʜɪɴɢ.
       </div>
 
       
@@ -329,6 +387,44 @@ REDIRECT_TEMPLATE = """
     });
   }
 </script>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <div class="footer-content">
+    © 2025 IAmBatman. All Rights Reserved.
+  </div>
+</footer>
+
+<style>
+.site-footer {
+  width: 100%;
+  padding: 14px 0;
+  background: rgba(0, 0, 0, 0.25);
+  text-align: center;
+  color: rgba(230, 247, 251, 0.7);
+  font-size: 0.88rem;
+  position: relative;
+  bottom: 0;
+  margin-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(4px);
+}
+.site-footer .footer-content {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.site-footer a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.site-footer a:hover {
+  text-decoration: underline;
+}
+@media(max-width:600px){
+  .site-footer { font-size: 0.82rem; padding: 12px 8px; }
+}
+</style>
+
 </body>
 </html>
 """
@@ -341,7 +437,7 @@ FILES_TEMPLATE = """
 <!doctype html>
 <html lang="en">
 <head>
-  <title>Files — page {{ page }}{% if query %} (search: {{ query }}){% endif %}</title>
+  <title>Sᴛᴏʀᴇᴅ Fɪʟᴇs : page {{ page }}{% if query %} (search: {{ query }}){% endif %}</title>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
   <link rel="icon" type="image/png" href="/static/favicon.png">
@@ -404,6 +500,7 @@ FILES_TEMPLATE = """
       .ad-container { margin:16px 0; }
     }
   </style>
+
 </head>
 <body>
   <div class="page-bg"></div>
@@ -414,14 +511,14 @@ FILES_TEMPLATE = """
       </a>
 
       <div>
-        <div style="font-size:1.1rem; color:var(--primary); font-weight:600">Files</div>
-        <div class="small">Browse stored files (page {{ page }} of {{ total_pages }})</div>
+        <div style="font-size:1.1rem; color:var(--primary); font-weight:600">Sᴛᴏʀᴇᴅ Fɪʟᴇs</div>
+        <div class="small">Bʀᴏᴡsᴇ sᴛᴏʀᴇᴅ ғɪʟᴇs (Pᴀɢᴇ {{ page }} ᴏғ {{ total_pages }})</div>
       </div>
       <div style="margin-left:auto">
         {% if page > 1 %}
-          <a class="glow-btn" href="{{ url_for('files_list') }}?page={{ page-1 }}{% if query %}&search={{ query | urlencode }}{% endif %}">← Back</a>
+          <a class="glow-btn" href="{{ url_for('files_list') }}?page={{ page-1 }}{% if query %}&search={{ query | urlencode }}{% endif %}">← Bᴀᴄᴋ</a>
         {% else %}
-          <a class="glow-btn" href="{{ url_for('home') }}">← Back</a>
+          <a class="glow-btn" href="{{ url_for('home') }}">← Bᴀᴄᴋ</a>
         {% endif %}
       </div>
 
@@ -445,10 +542,10 @@ FILES_TEMPLATE = """
       <div class="top-row">
         <form id="searchForm" method="get" action="{{ url_for('files_list') }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; width:100%">
           <div class="search-box">
-            <input class="search-field" name="search" placeholder="Search file names..." value="{{ query | e }}">
-            <button class="page-btn" type="submit">Search</button>
+            <input class="search-field" name="search" placeholder="Sᴇᴀʀᴄʜ ғɪʟᴇ ɴᴀᴍᴇs..." value="{{ query | e }}">
+            <button class="page-btn" type="submit">Sᴇᴀʀᴄʜ</button>
           </div>
-          <div class="perpage">Showing {{ per_page }} per page</div>
+          <div class="perpage">Sʜᴏᴡɪɴɢ {{ per_page }} ᴘᴇʀ ᴘᴀɢᴇ</div>
         </form>
       </div>
 
@@ -474,7 +571,7 @@ FILES_TEMPLATE = """
                 </div>
               </div>
               <div class="actions">
-                <a class="page-btn" href="{{ url_for('redirect_page') }}?id={{ f.get('message_id') }}">Get</a>
+                <a class="page-btn" href="{{ url_for('redirect_page') }}?id={{ f.get('message_id') }}">Gᴇᴛ</a>
               </div>
             </div>
           {% endfor %}
@@ -485,17 +582,17 @@ FILES_TEMPLATE = """
 
       <div class="pagination">
         {% if page > 1 %}
-          <a class="page-btn" href="{{ url_for('files_list') }}?page={{ page-1 }}{% if query %}&search={{ query | urlencode }}{% endif %}">Previous</a>
+          <a class="page-btn" href="{{ url_for('files_list') }}?page={{ page-1 }}{% if query %}&search={{ query | urlencode }}{% endif %}">Pʀᴇᴠɪᴏᴜs</a>
         {% else %}
-          <button class="page-btn" disabled>Previous</button>
+          <button class="page-btn" disabled>Pʀᴇᴠɪᴏᴜs</button>
         {% endif %}
 
-        <div class="small">Page {{ page }} / {{ total_pages }}</div>
+        <div class="small">Pᴀɢᴇ {{ page }} / {{ total_pages }}</div>
 
         {% if page < total_pages %}
-          <a class="page-btn" id="nextBtn" href="{{ url_for('files_list') }}?page={{ page+1 }}{% if query %}&search={{ query | urlencode }}{% endif %}">Next</a>
+          <a class="page-btn" id="nextBtn" href="{{ url_for('files_list') }}?page={{ page+1 }}{% if query %}&search={{ query | urlencode }}{% endif %}">Nᴇxᴛ</a>
         {% else %}
-          <button class="page-btn" disabled>Next</button>
+          <button class="page-btn" disabled>Nᴇxᴛ</button>
         {% endif %}
       </div>
     </div>
@@ -517,7 +614,7 @@ FILES_TEMPLATE = """
     <!-- Popup Ad -->
     <div id="popupAd">
       <div class="ad-box">
-        <button id="closeAd">X</button>
+        <button id="closeAd">Close</button>
         <script type="text/javascript">
           atOptions = {
             'key' : 'fdf3bc4ff7c8fb37b011cb27d58ecc67',
@@ -569,8 +666,46 @@ FILES_TEMPLATE = """
       });
     }
     </script>
-
+  
   </div>
+
+  <!-- Footer -->
+<footer class="site-footer">
+  <div class="footer-content">
+    © 2025 IAmBatman. All Rights Reserved.
+  </div>
+</footer>
+
+<style>
+.site-footer {
+  width: 100%;
+  padding: 14px 0;
+  background: rgba(0, 0, 0, 0.25);
+  text-align: center;
+  color: rgba(230, 247, 251, 0.7);
+  font-size: 0.88rem;
+  position: relative;
+  bottom: 0;
+  margin-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(4px);
+}
+.site-footer .footer-content {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.site-footer a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.site-footer a:hover {
+  text-decoration: underline;
+}
+@media(max-width:600px){
+  .site-footer { font-size: 0.82rem; padding: 12px 8px; }
+}
+</style>
+
 </body>
 </html>
 """
@@ -658,5 +793,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=5000, debug=False)
 
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True  # ✅ this allows Flask to exit when main thread stops
+    flask_thread.start()
     client.run()
