@@ -11,6 +11,7 @@ from config import (
     AUTH_CHANNELS, GROUP_ID,MINI_APP_URL
 )
 
+
 REMOVE_TAGS = [
     r'\[MLM\]', r'\[MT\]', r'\[MS\]', r'\[MZM\]', r'\[CF\]', r'\[CP\]', r'\[NRX\]',
     r'\[CT™\]', r'\[PsmOfficial\]', r'\[PFM\]', r'\[FC\]', r'\[KC\]', r'\[YM\]', r'\[A2M\]',
@@ -20,18 +21,20 @@ REMOVE_TAGS = [
     r'@SonyTamizh', r'@Movies_Tamizhaaas', r'@TamilCinemaToday', r'@IM_Eeswaran', r'©FC', r'@MM_Linkz',
     r'@ContenTeam', r'@WorldCinemaToday', r'@MW_Linkz', r'@FBM', r'@MM_New', r'@WMR', r'@Hdnewtamilmoviwa4k',
     r'@CC', r'@dubbedmovies', r'🄼🅂', r'@CEM', r'@AVA', r'@TR_Movies', r'@mersalananthu',
-    r'@TamilNewMovie_HD', r'@MC_4U', r'@GethXan_Moviez', r'www_TamilBlasters_me', r'mm', r'@trollmaa',
+    r'@TamilNewMovie_HD', r'@MC_4U', r'@GethXan_Moviez', r'www_TamilBlasters_me', r'@trollmaa',
     r'@GSR', r'@kc_dio', r'@FBM_Dubbed', r'@Tamilmoviez', r'@mobile_mm', r'@UploaditBot', r'@CC_All',
     r'@Massmovies0', r'@GANGTAMIL_HD', r'@Team_TRR', r'@Moviezstuffofficial',
     r'@Team_5G_', r'@Tamil_Mob_LinksZz', r'@MoviesNowLinks', r'@Movies_Worldda1', r'@Smile_upload',
     r'@mtb_s', r'@Tamil_LinkzZ', r'@SPY_TALKIESS', r'@MOViEZHUNT', r'@SheikXMoviesOffl', r'@Hevc_Mob',
     r'@VideoMemesTamizh', r'@Movies_Graft', r'@THHx265', r'@MoviiWrld', r'@HEVC_Moviesz',
-    r'@TamilDubFilms', r'@CelluloidCineClub',r'_@UHDPrime', r'@sokfiles', r'@Rarefilms', r'𝙼𝚁✘', r'ꜰᴏ✘'
+    r'@TamilDubFilms', r'@CelluloidCineClub', r'_@UHDPrime', r'@sokfiles', r'@Rarefilms', r'𝙼𝚁✘', r'ꜰᴏ✘'
 ]
+
 REMOVE_PATTERN = re.compile(
     r'(' + '|'.join(REMOVE_TAGS) + r'|@[\w\d]+(?=[\s_\-\.]|$))',
     flags=re.IGNORECASE
 )
+
 
 def clean_filename(name: str) -> str:
     """Clean filename by removing tags, credits, and junk characters."""
