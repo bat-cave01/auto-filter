@@ -12,8 +12,8 @@ from config import (
 )
 
 REMOVE_TAGS = [
-    r'\[MM\]', r'\[MLM\]', r'\[MT\]', r'\[MS\]', r'\[MZM\]', r'\[CF\]', r'\[CP\]', r'\[NRX\]',
-    r'\[CT™\]', r'\[PsmOfficial\]', r'\[PFM\]', r'\[FC\]', r'\[KC\]', r'\[YM\]', r'\[A2M\]', r'\[CL\]',
+    r'\[MLM\]', r'\[MT\]', r'\[MS\]', r'\[MZM\]', r'\[CF\]', r'\[CP\]', r'\[NRX\]',
+    r'\[CT™\]', r'\[PsmOfficial\]', r'\[PFM\]', r'\[FC\]', r'\[KC\]', r'\[YM\]', r'\[A2M\]',
     r'@Team_MCU', r'@MCU_Linkz', r'@BatmanLinkz', r'@smile_upload', r'@TCU_linkz', r'@Team_HDT',
     r'@UHD_Tamil', r'@MCUxLinks', r'@C\.C', r'@TamilAnimationToday', r'@Bucket_LinkZz', r'@PrimeMoviesOffl',
     r'@Nesamani_Linkz', r'@Tamil_Link_Official', r'@TeamHDT', r'@Main_Channel_Noob', r'ATK', r'@HEVCHubX',
